@@ -1,14 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Plane, DoorOpen, BedDouble, ClipboardList, Calendar, User, MapPin, Clock } from 'lucide-react';
+import { useAuth } from 'react-oidc-context';
 
 import Panel from '@/components/Panel';
-import { getDemoDashboardData, type DailyGuestInfo, type GuestDetail } from '@/data/homeDashboard';
+import { fetchDashboardData, type DailyGuestInfo, type GuestDetail } from '@/data/homeDashboard';
 import { formatDateLabel } from '@/utils/formatDateLabel';
 import {
-  RESERVATION_TASKS,
-  STAFF_MEMBERS,
-  getStaffDashboardData,
+  fetchReservationTasks,
+  fetchStaffDashboardData,
+  fetchStaffMembers,
   type ReservationTask,
+  type StaffMember,
   type TaskStatus,
 } from '@/data/staffAssignments';
 
@@ -41,6 +43,15 @@ const formatDateKey = (date: Date) => {
 };
 
 const HomePage: React.FC = () => {
+  const auth = useAuth();
+  const [dashboardData, setDashboardData] = useState<DailyGuestInfo[]>([]);
+  const [staffDashboardData, setStaffDashboardData] = useState<DailyGuestInfo[]>([]);
+  const [reservationTasks, setReservationTasks] = useState<ReservationTask[]>([]);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
   const today = useMemo(() => new Date('2020-09-25T00:00:00'), []);
   const days = useMemo(() => {
     return Array.from({ length: 10 }, (_, idx) => {
@@ -50,11 +61,61 @@ const HomePage: React.FC = () => {
     });
   }, [today]);
 
-  const [selectedDate, setSelectedDate] = useState(() => days[0]);
-  const dashboardData = getDemoDashboardData();
-  const staffDashboardData = useMemo(() => getStaffDashboardData(today), [today]);
+  // Initialize selectedDate once days is available
+  useEffect(() => {
+    if (!selectedDate && days.length > 0) {
+      setSelectedDate(days[0]);
+    }
+  }, [days, selectedDate]);
+
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const token = auth.user?.access_token;
+        const baseDate = today.toISOString().slice(0, 10);
+        const [dashboard, staffAssignments, tasks, members] = await Promise.all([
+          fetchDashboardData(token),
+          fetchStaffDashboardData(baseDate, token),
+          fetchReservationTasks(token),
+          fetchStaffMembers(token),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        setDashboardData(dashboard);
+        setStaffDashboardData(staffAssignments);
+        setReservationTasks(tasks);
+        setStaffMembers(members);
+        setLoading(false);
+      } catch (fetchError) {
+        if (!active) {
+          return;
+        }
+
+        const message = fetchError instanceof Error ? fetchError.message : 'Failed to load dashboard data.';
+        setError(message);
+        setLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      active = false;
+    };
+  }, [today, auth.user?.access_token]);
 
   const selectedData = useMemo<DailyGuestInfo>(() => {
+    if (!selectedDate) {
+      return { date: '', arrivals: [], departures: [], stays: [] };
+    }
     const formatted = selectedDate.toISOString().slice(0, 10);
     return (
       dashboardData.find((item) => item.date === formatted) ?? {
@@ -67,13 +128,14 @@ const HomePage: React.FC = () => {
   }, [dashboardData, selectedDate]);
 
   const selectedStaffDay = useMemo(() => {
+    if (!selectedDate) return undefined;
     const key = formatDateKey(selectedDate);
     return staffDashboardData.find((item) => item.date === key);
   }, [selectedDate, staffDashboardData]);
 
   const tasksByReservation = useMemo(() => {
     const map = new Map<string, ReservationTask[]>();
-    RESERVATION_TASKS.forEach((task) => {
+    reservationTasks.forEach((task) => {
       if (map.has(task.reservationId)) {
         map.get(task.reservationId)!.push(task);
       } else {
@@ -81,14 +143,14 @@ const HomePage: React.FC = () => {
       }
     });
     return map;
-  }, []);
+  }, [reservationTasks]);
 
   const staffById = useMemo(() => {
-    return STAFF_MEMBERS.reduce<Record<string, typeof STAFF_MEMBERS[number]>>((acc, member) => {
+    return staffMembers.reduce<Record<string, StaffMember>>((acc, member) => {
       acc[member.id] = member;
       return acc;
     }, {});
-  }, []);
+  }, [staffMembers]);
 
   const tasksForSelectedDate = useMemo(() => {
     if (!selectedStaffDay) return [];
@@ -116,11 +178,27 @@ const HomePage: React.FC = () => {
   const staysCount = selectedData.stays.length;
   const departuresCount = selectedData.departures.length;
 
-  const formattedDate = selectedDate.toLocaleDateString('en-US', {
+  const formattedDate = selectedDate?.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
+
+  if (error) {
+    return (
+      <Panel className="flex-1 flex items-center justify-center text-sm text-red-600">
+        {error}
+      </Panel>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Panel className="flex-1 flex items-center justify-center text-sm text-slate-500">
+        Loading dashboard…
+      </Panel>
+    );
+  }
 
   const sections: Array<{
     key: 'arrivals' | 'stays' | 'departures';
@@ -182,7 +260,7 @@ const HomePage: React.FC = () => {
             const arrivalCount = dataForDay?.arrivals.length ?? 0;
             const stayCount = dataForDay?.stays.length ?? 0;
             const departureCount = dataForDay?.departures.length ?? 0;
-            const isActive = selectedDate.toDateString() === day.toDateString();
+              const isActive = selectedDate?.toDateString() === day.toDateString();
 
             return (
               <button

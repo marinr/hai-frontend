@@ -1,15 +1,16 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from 'react-oidc-context';
 
 import Panel from '@/components/Panel';
 import {
-  RESERVATION_TASKS,
-  STAFF_MEMBERS,
-  getStaffDashboardData,
+  fetchReservationTasks,
+  fetchStaffDashboardData,
+  fetchStaffMembers,
   type ReservationTask,
   type StaffMember,
   type TaskStatus,
 } from '@/data/staffAssignments';
-import type { GuestDetail } from '@/data/homeDashboard';
+import type { DailyGuestInfo, GuestDetail } from '@/data/homeDashboard';
 import { formatDateLabel } from '@/utils/formatDateLabel';
 
 const TASK_STATUS_META: Record<
@@ -73,18 +74,14 @@ interface ReservationWithTasks {
 }
 
 const StaffPage: React.FC = () => {
+  const auth = useAuth();
   const [initialDate] = useState(() => createInitialSelectedDate());
 
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
   const [taskAssignments, setTaskAssignments] = useState<Record<string, string | undefined>>({});
-  const [taskStatuses, setTaskStatuses] = useState<Record<string, TaskStatus>>(() => {
-    const initialStatuses: Record<string, TaskStatus> = {};
-    RESERVATION_TASKS.forEach((task) => {
-      initialStatuses[task.id] = task.status;
-    });
-    return initialStatuses;
-  });
+  const [taskStatuses, setTaskStatuses] = useState<Record<string, TaskStatus>>({});
   const [taskResolutions, setTaskResolutions] = useState<Record<string, string>>({});
+  const [removedTasks, setRemovedTasks] = useState<Record<string, boolean>>({});
   const [resolutionModal, setResolutionModal] = useState<{
     taskId: string;
     value: string;
@@ -92,7 +89,93 @@ const StaffPage: React.FC = () => {
   const [activeDropTaskId, setActiveDropTaskId] = useState<string | null>(null);
   const [draggedStaffId, setDraggedStaffId] = useState<string | null>(null);
 
-  const staffMembers = STAFF_MEMBERS;
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [reservationTasks, setReservationTasks] = useState<ReservationTask[]>([]);
+  const [staffSchedule, setStaffSchedule] = useState<DailyGuestInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const token = auth.user?.access_token;
+        const baseDate = initialDate.toISOString().slice(0, 10);
+        const [members, tasks, assignments] = await Promise.all([
+          fetchStaffMembers(token),
+          fetchReservationTasks(token),
+          fetchStaffDashboardData(baseDate, token),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        setStaffMembers(members);
+        setReservationTasks(tasks);
+        setStaffSchedule(assignments);
+        setTaskStatuses((prev) => {
+          const next: Record<string, TaskStatus> = {};
+
+          tasks.forEach((task) => {
+            next[task.id] = prev[task.id] ?? task.status;
+          });
+
+          return next;
+        });
+
+        setTaskAssignments((prev) => {
+          const next: Record<string, string | undefined> = {};
+          tasks.forEach((task) => {
+            if (prev[task.id]) {
+              next[task.id] = prev[task.id];
+            }
+          });
+          return next;
+        });
+
+        setTaskResolutions((prev) => {
+          const next: Record<string, string> = {};
+          tasks.forEach((task) => {
+            if (prev[task.id]) {
+              next[task.id] = prev[task.id];
+            }
+          });
+          return next;
+        });
+
+        setRemovedTasks((prev) => {
+          const next: Record<string, boolean> = {};
+          tasks.forEach((task) => {
+            if (prev[task.id]) {
+              next[task.id] = prev[task.id];
+            }
+          });
+          return next;
+        });
+
+        setLoading(false);
+      } catch (fetchError) {
+        if (!active) {
+          return;
+        }
+
+        const message = fetchError instanceof Error ? fetchError.message : 'Failed to load staff data.';
+        setError(message);
+        setLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      active = false;
+    };
+  }, [initialDate, auth.user?.access_token]);
 
   const staffById = useMemo(() => {
     return staffMembers.reduce<Record<string, StaffMember>>((acc, member) => {
@@ -100,8 +183,6 @@ const StaffPage: React.FC = () => {
       return acc;
     }, {});
   }, [staffMembers]);
-
-  const dashboardData = useMemo(() => getStaffDashboardData(initialDate), [initialDate]);
 
   const upcomingDays = useMemo(() => {
     return Array.from({ length: 10 }, (_, idx) => {
@@ -113,7 +194,7 @@ const StaffPage: React.FC = () => {
 
   const tasksByReservation = useMemo(() => {
     const map = new Map<string, ReservationTask[]>();
-    RESERVATION_TASKS.forEach((task) => {
+    reservationTasks.forEach((task) => {
       if (map.has(task.reservationId)) {
         map.get(task.reservationId)!.push(task);
       } else {
@@ -121,12 +202,12 @@ const StaffPage: React.FC = () => {
       }
     });
     return map;
-  }, []);
+  }, [reservationTasks]);
 
   const selectedDateKey = useMemo(() => createDateKey(selectedDate), [selectedDate]);
 
   const reservationsForDay: ReservationWithTasks[] = useMemo(() => {
-    const day = dashboardData.find((entry) => entry.date === selectedDateKey);
+    const day = staffSchedule.find((entry) => entry.date === selectedDateKey);
     if (!day) {
       return [];
     }
@@ -143,7 +224,7 @@ const StaffPage: React.FC = () => {
       ...build(day.stays, 'stay'),
       ...build(day.departures, 'departure'),
     ];
-  }, [dashboardData, selectedDateKey, tasksByReservation]);
+  }, [staffSchedule, selectedDateKey, tasksByReservation]);
 
   const reservationsTaskCount = useMemo(
     () => reservationsForDay.reduce((total, reservation) => total + reservation.tasks.length, 0),
@@ -161,18 +242,6 @@ const StaffPage: React.FC = () => {
       }),
     [selectedDate],
   );
-
-  const formatDateTime = (value: string) => {
-    if (!value) return '—';
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
-    return parsed.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const handleDaySelect = useCallback((day: Date) => {
     setSelectedDate(new Date(day.getFullYear(), day.getMonth(), day.getDate()));
@@ -247,6 +316,52 @@ const StaffPage: React.FC = () => {
     });
   }, []);
 
+  const handleRemoveTask = useCallback(
+    (taskId: string) => {
+      setRemovedTasks((prev) => ({ ...prev, [taskId]: true }));
+      clearAssignment(taskId);
+      setTaskStatuses((prev) => {
+        if (!(taskId in prev)) return prev;
+        const { [taskId]: _, ...rest } = prev;
+        return rest;
+      });
+      setTaskResolutions((prev) => {
+        if (!(taskId in prev)) return prev;
+        const { [taskId]: _, ...rest } = prev;
+        return rest;
+      });
+    },
+    [clearAssignment],
+  );
+
+  if (error) {
+    return (
+      <Panel className="flex-1 flex items-center justify-center text-sm text-red-600">
+        {error}
+      </Panel>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Panel className="flex-1 flex items-center justify-center text-sm text-slate-500">
+        Loading staff assignments…
+      </Panel>
+    );
+  }
+
+  const formatDateTime = (value: string) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
     <div className="flex-1 flex gap-4 overflow-hidden items-start relative">
       <Panel padding={false} className="w-72 flex-shrink-0 flex flex-col">
@@ -258,7 +373,7 @@ const StaffPage: React.FC = () => {
           {upcomingDays.map((day) => {
             const label = formatDateLabel(day, initialDate);
             const dateKey = createDateKey(day);
-            const dataForDay = dashboardData.find((entry) => entry.date === dateKey);
+            const dataForDay = staffSchedule.find((entry) => entry.date === dateKey);
             const arrivalCount = dataForDay?.arrivals.length ?? 0;
             const stayCount = dataForDay?.stays.length ?? 0;
             const departureCount = dataForDay?.departures.length ?? 0;
@@ -379,7 +494,9 @@ const StaffPage: React.FC = () => {
                         <p className="mt-2 text-[11px] text-gray-500">No tasks created yet.</p>
                       ) : (
                         <ul className="mt-2 space-y-3">
-                          {tasks.map((task) => {
+                          {tasks
+                            .filter((task) => !removedTasks[task.id])
+                            .map((task) => {
                             const currentStatus = taskStatuses[task.id] ?? task.status;
                             const statusMeta = TASK_STATUS_META[currentStatus];
                             const assignedStaffId = taskAssignments[task.id];
@@ -424,9 +541,10 @@ const StaffPage: React.FC = () => {
                                       <button
                                         type="button"
                                         onClick={() => clearAssignment(task.id)}
-                                        className="text-[10px] font-semibold text-blue-700 hover:text-blue-900"
+                                        aria-label="Clear assignment"
+                                        className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/60 text-[11px] font-bold text-blue-700 hover:bg-white hover:text-blue-900"
                                       >
-                                        Clear
+                                        ×
                                       </button>
                                     </div>
                                   ) : suggestedStaff ? (
@@ -437,33 +555,6 @@ const StaffPage: React.FC = () => {
                                   ) : (
                                     <span className="text-[10px] text-gray-500">Unassigned</span>
                                   )}
-                                </div>
-
-                                <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
-                                  {STAFF_MEMBERS.map((member) => {
-                                    const isAssigned = assignedStaffId === member.id;
-                                    return (
-                                      <button
-                                        key={`${task.id}-${member.id}`}
-                                        type="button"
-                                        onClick={() => setTaskAssignments((prev) => ({ ...prev, [task.id]: member.id }))}
-                                        className={`flex items-center gap-1 rounded-full border px-2 py-1 font-semibold transition-colors ${
-                                          isAssigned ? 'border-blue-500 bg-blue-500 text-white shadow-sm' : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:text-blue-700'
-                                        }`}
-                                      >
-                                        <span
-                                          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold text-white"
-                                          style={{ backgroundColor: member.avatarColor }}
-                                        >
-                                          {member.name
-                                            .split(' ')
-                                            .map((part) => part.charAt(0))
-                                            .join('')}
-                                        </span>
-                                        {member.name.split(' ')[0]}
-                                      </button>
-                                    );
-                                  })}
                                 </div>
 
                                 <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
@@ -495,6 +586,15 @@ const StaffPage: React.FC = () => {
                                 <p className="mt-3 text-[11px] text-gray-500 italic">
                                   {savedResolution ? `Resolution: ${savedResolution}` : 'Resolution not documented yet.'}
                                 </p>
+                                <div className="mt-3 flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveTask(task.id)}
+                                    className="text-[11px] font-semibold text-red-600 hover:text-red-700"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
                               </li>
                             );
                           })}

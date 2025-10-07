@@ -1,21 +1,19 @@
-import type { DailyGuestInfo, GuestDetail } from '@/data/homeDashboard';
-import type { Channel } from '@/types';
+import { DailyGuestInfo, GuestDetail, ReservationTask, StaffMember } from '../types';
 
-export type TaskStatus = 'opened' | 'in-progress' | 'done';
+type ReservationType = 'arrival' | 'departure' | 'stay';
 
-export interface StaffMember {
-  id: string;
-  name: string;
-  role: string;
-  avatarColor: string;
+interface GuestTemplate extends Omit<GuestDetail, 'checkIn' | 'checkOut'> {
+  checkInOffset: number;
+  checkOutOffset: number;
+  checkInHour?: number;
+  checkOutHour?: number;
 }
 
-export interface ReservationTask {
-  id: string;
-  reservationId: string;
-  description: string;
-  status: TaskStatus;
-  suggestedStaffId?: string;
+interface ScheduleTemplateDay {
+  offset: number;
+  arrivals?: GuestTemplate[];
+  departures?: GuestTemplate[];
+  stays?: GuestTemplate[];
 }
 
 const pad = (value: number) => value.toString().padStart(2, '0');
@@ -33,36 +31,55 @@ const createDateTime = (baseDate: Date, offsetDays: number, hours: number, minut
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-type ReservationType = 'arrival' | 'departure' | 'stay';
+const createGuestDetail = (baseDate: Date, template: GuestTemplate, type: ReservationType): GuestDetail => {
+  const {
+    reservationId,
+    guestName,
+    property,
+    channel,
+    checkInOffset,
+    checkOutOffset,
+    checkInHour = 15,
+    checkOutHour = 11,
+    notes,
+    parkingReserved,
+    parkingSpot,
+    specialRequests,
+    requests,
+    transportation,
+    flightNumber,
+    eta,
+    delay,
+    departureTime,
+    housekeeping,
+  } = template;
 
-interface GuestTemplate {
-  reservationId: string;
-  guestName: string;
-  property: string;
-  channel: Channel;
-  checkInOffset: number;
-  checkOutOffset: number;
-  checkInHour?: number;
-  checkOutHour?: number;
-  notes?: string;
-  parkingReserved?: boolean;
-  parkingSpot?: string;
-  specialRequests?: string[];
-  requests?: string[];
-  transportation?: string;
-  flightNumber?: string;
-  eta?: string;
-  delay?: string;
-  departureTime?: string;
-  housekeeping?: string;
-}
+  const base: GuestDetail = {
+    guestName,
+    reservationId,
+    property,
+    channel,
+    checkIn: createDateTime(baseDate, checkInOffset, checkInHour),
+    checkOut: createDateTime(baseDate, checkOutOffset, checkOutHour),
+    parkingReserved,
+    parkingSpot,
+    specialRequests,
+    requests,
+    transportation,
+    flightNumber,
+    eta,
+    delay,
+    departureTime,
+    housekeeping,
+    notes,
+  };
 
-interface ScheduleTemplateDay {
-  offset: number;
-  arrivals?: GuestTemplate[];
-  departures?: GuestTemplate[];
-  stays?: GuestTemplate[];
-}
+  if (type === 'stay' && housekeeping) {
+    base.housekeeping = housekeeping;
+  }
+
+  return base;
+};
 
 const scheduleTemplate: ScheduleTemplateDay[] = [
   {
@@ -303,60 +320,6 @@ const scheduleTemplate: ScheduleTemplateDay[] = [
   },
 ];
 
-const createGuestDetail = (
-  baseDate: Date,
-  template: GuestTemplate,
-  type: ReservationType,
-): GuestDetail => {
-  const {
-    reservationId,
-    guestName,
-    property,
-    channel,
-    checkInOffset,
-    checkOutOffset,
-    checkInHour = 15,
-    checkOutHour = 11,
-    notes,
-    parkingReserved,
-    parkingSpot,
-    specialRequests,
-    requests,
-    transportation,
-    flightNumber,
-    eta,
-    delay,
-    departureTime,
-    housekeeping,
-  } = template;
-
-  const base: GuestDetail = {
-    guestName,
-    reservationId,
-    property,
-    channel,
-    checkIn: createDateTime(baseDate, checkInOffset, checkInHour),
-    checkOut: createDateTime(baseDate, checkOutOffset, checkOutHour),
-    parkingReserved,
-    parkingSpot,
-    specialRequests,
-    requests,
-    transportation,
-    flightNumber,
-    eta,
-    delay,
-    departureTime,
-    housekeeping,
-    notes,
-  };
-
-  if (type === 'stay' && housekeeping) {
-    base.housekeeping = housekeeping;
-  }
-
-  return base;
-};
-
 export const STAFF_MEMBERS: StaffMember[] = [
   { id: 's1', name: 'Jordan Miles', role: 'Housekeeping Lead', avatarColor: '#2563eb' },
   { id: 's2', name: 'Priya Desai', role: 'Guest Experience', avatarColor: '#059669' },
@@ -366,133 +329,29 @@ export const STAFF_MEMBERS: StaffMember[] = [
 ];
 
 export const RESERVATION_TASKS: ReservationTask[] = [
-  {
-    id: 't-sr-101-1',
-    reservationId: 'sr-101',
-    description: 'Assemble crib, steam linens, and set hypoallergenic pillows.',
-    status: 'opened',
-    suggestedStaffId: 's5',
-  },
-  {
-    id: 't-sr-101-2',
-    reservationId: 'sr-101',
-    description: 'Coordinate Lyft pickup confirmation and share updated ETA.',
-    status: 'in-progress',
-    suggestedStaffId: 's4',
-  },
-  {
-    id: 't-sr-102-1',
-    reservationId: 'sr-102',
-    description: 'Place anniversary card and sparkling water in fridge.',
-    status: 'opened',
-    suggestedStaffId: 's2',
-  },
-  {
-    id: 't-sr-103-1',
-    reservationId: 'sr-103',
-    description: 'Deliver fresh fruit bowl and check coffee supplies.',
-    status: 'opened',
-    suggestedStaffId: 's2',
-  },
-  {
-    id: 't-sr-103-2',
-    reservationId: 'sr-103',
-    description: 'Run full-service refresh before 13:30 meeting.',
-    status: 'in-progress',
-    suggestedStaffId: 's1',
-  },
-  {
-    id: 't-sr-104-1',
-    reservationId: 'sr-104',
-    description: 'Confirm late checkout waiver and update calendar blocks.',
-    status: 'opened',
-    suggestedStaffId: 's3',
-  },
-  {
-    id: 't-sr-105-1',
-    reservationId: 'sr-105',
-    description: 'Stage fridge with grocery delivery by 16:00.',
-    status: 'opened',
-    suggestedStaffId: 's2',
-  },
-  {
-    id: 't-sr-106-1',
-    reservationId: 'sr-106',
-    description: 'Restock campfire wood bundle near trailer.',
-    status: 'in-progress',
-    suggestedStaffId: 's3',
-  },
-  {
-    id: 't-sr-107-1',
-    reservationId: 'sr-107',
-    description: 'Collect spare keys and audit linens after departure.',
-    status: 'opened',
-    suggestedStaffId: 's1',
-  },
-  {
-    id: 't-sr-108-1',
-    reservationId: 'sr-108',
-    description: 'Ensure espresso pods and welcome snacks meet dietary notes.',
-    status: 'opened',
-    suggestedStaffId: 's5',
-  },
-  {
-    id: 't-sr-108-2',
-    reservationId: 'sr-108',
-    description: 'Share flight arrival updates with transport vendor.',
-    status: 'in-progress',
-    suggestedStaffId: 's4',
-  },
-  {
-    id: 't-sr-109-1',
-    reservationId: 'sr-109',
-    description: 'Deliver extra yoga mats and roll out aromatherapy diffuser.',
-    status: 'opened',
-    suggestedStaffId: 's2',
-  },
-  {
-    id: 't-sr-110-1',
-    reservationId: 'sr-110',
-    description: 'Swap snack basket for peanut-free assortment.',
-    status: 'opened',
-    suggestedStaffId: 's5',
-  },
-  {
-    id: 't-sr-111-1',
-    reservationId: 'sr-111',
-    description: 'Collect gear checklist and check trailer inventory.',
-    status: 'in-progress',
-    suggestedStaffId: 's3',
-  },
-  {
-    id: 't-sr-112-1',
-    reservationId: 'sr-112',
-    description: 'Set up ergonomic desk chair and tidy workspace area.',
-    status: 'opened',
-    suggestedStaffId: 's1',
-  },
-  {
-    id: 't-sr-113-1',
-    reservationId: 'sr-113',
-    description: 'Restock tea assortment and prep evening turn-down.',
-    status: 'opened',
-    suggestedStaffId: 's5',
-  },
-  {
-    id: 't-sr-114-1',
-    reservationId: 'sr-114',
-    description: 'Coordinate luggage assistance and valet cart.',
-    status: 'done',
-    suggestedStaffId: 's4',
-  },
+  { id: 't-sr-101-1', reservationId: 'sr-101', description: 'Assemble crib, steam linens, and set hypoallergenic pillows.', status: 'opened', suggestedStaffId: 's5' },
+  { id: 't-sr-101-2', reservationId: 'sr-101', description: 'Coordinate Lyft pickup confirmation and share updated ETA.', status: 'in-progress', suggestedStaffId: 's4' },
+  { id: 't-sr-102-1', reservationId: 'sr-102', description: 'Place anniversary card and sparkling water in fridge.', status: 'opened', suggestedStaffId: 's2' },
+  { id: 't-sr-103-1', reservationId: 'sr-103', description: 'Deliver fresh fruit bowl and check coffee supplies.', status: 'opened', suggestedStaffId: 's2' },
+  { id: 't-sr-103-2', reservationId: 'sr-103', description: 'Run full-service refresh before 13:30 meeting.', status: 'in-progress', suggestedStaffId: 's1' },
+  { id: 't-sr-104-1', reservationId: 'sr-104', description: 'Confirm late checkout waiver and update calendar blocks.', status: 'opened', suggestedStaffId: 's3' },
+  { id: 't-sr-105-1', reservationId: 'sr-105', description: 'Stage fridge with grocery delivery by 16:00.', status: 'opened', suggestedStaffId: 's2' },
+  { id: 't-sr-106-1', reservationId: 'sr-106', description: 'Restock campfire wood bundle near trailer.', status: 'in-progress', suggestedStaffId: 's3' },
+  { id: 't-sr-107-1', reservationId: 'sr-107', description: 'Collect spare keys and audit linens after departure.', status: 'opened', suggestedStaffId: 's1' },
+  { id: 't-sr-108-1', reservationId: 'sr-108', description: 'Ensure espresso pods and welcome snacks meet dietary notes.', status: 'opened', suggestedStaffId: 's5' },
+  { id: 't-sr-108-2', reservationId: 'sr-108', description: 'Share flight arrival updates with transport vendor.', status: 'in-progress', suggestedStaffId: 's4' },
+  { id: 't-sr-109-1', reservationId: 'sr-109', description: 'Deliver extra yoga mats and roll out aromatherapy diffuser.', status: 'opened', suggestedStaffId: 's2' },
+  { id: 't-sr-110-1', reservationId: 'sr-110', description: 'Swap snack basket for peanut-free assortment.', status: 'opened', suggestedStaffId: 's5' },
+  { id: 't-sr-111-1', reservationId: 'sr-111', description: 'Collect gear checklist and check trailer inventory.', status: 'in-progress', suggestedStaffId: 's3' },
+  { id: 't-sr-112-1', reservationId: 'sr-112', description: 'Set up ergonomic desk chair and tidy workspace area.', status: 'opened', suggestedStaffId: 's1' },
+  { id: 't-sr-113-1', reservationId: 'sr-113', description: 'Restock tea assortment and prep evening turn-down.', status: 'opened', suggestedStaffId: 's5' },
+  { id: 't-sr-114-1', reservationId: 'sr-114', description: 'Coordinate luggage assistance and valet cart.', status: 'done', suggestedStaffId: 's4' },
 ];
 
-export const getStaffDashboardData = (baseDate: Date): DailyGuestInfo[] => {
-  return scheduleTemplate.map(({ offset, arrivals = [], departures = [], stays = [] }) => ({
+export const getStaffDashboardData = (baseDate: Date): DailyGuestInfo[] =>
+  scheduleTemplate.map(({ offset, arrivals = [], departures = [], stays = [] }) => ({
     date: createDateKey(baseDate, offset),
     arrivals: arrivals.map((template) => createGuestDetail(baseDate, template, 'arrival')),
     departures: departures.map((template) => createGuestDetail(baseDate, template, 'departure')),
     stays: stays.map((template) => createGuestDetail(baseDate, template, 'stay')),
   }));
-};
-

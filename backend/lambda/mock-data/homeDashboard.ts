@@ -1,45 +1,4 @@
-import type { Channel } from '@/types';
-
-export interface GuestReservation {
-  guestName: string;
-  reservationId: string;
-  property: string;
-  channel: Channel;
-  checkIn: string;
-  checkOut: string;
-  parkingReserved?: boolean;
-  parkingSpot?: string;
-  specialRequests?: string[];
-}
-
-export interface ArrivalInfo {
-  flightNumber?: string;
-  transportation?: string;
-  notes?: string;
-  eta?: string;
-  delay?: string;
-}
-
-export interface DepartureInfo {
-  transportation?: string;
-  departureTime?: string;
-  notes?: string;
-}
-
-export interface StayInfo {
-  requests?: string[];
-  housekeeping?: string;
-  notes?: string;
-}
-
-export type GuestDetail = GuestReservation & Partial<ArrivalInfo & DepartureInfo & StayInfo>;
-
-export interface DailyGuestInfo {
-  date: string;
-  arrivals: GuestDetail[];
-  departures: GuestDetail[];
-  stays: GuestDetail[];
-}
+import { DailyGuestInfo } from '../types';
 
 const demoDashboard: DailyGuestInfo[] = [
   {
@@ -180,6 +139,4 @@ const demoDashboard: DailyGuestInfo[] = [
   },
 ];
 
-export function getDemoDashboardData(): DailyGuestInfo[] {
-  return demoDashboard;
-}
+export const getDashboard = (): DailyGuestInfo[] => demoDashboard;
