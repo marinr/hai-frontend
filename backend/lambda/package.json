@@ -6,9 +6,7 @@
   "scripts": {
     "build": "esbuild handler.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/handler.js --external:aws-sdk"
   },
-  "dependencies": {
-    "aws-jwt-verify": "^4.0.1"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",
     "esbuild": "^0.24.0",

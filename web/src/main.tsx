@@ -4,18 +4,21 @@ import { AuthProvider } from 'react-oidc-context';
 import App from './App';
 import './index.css';
 
-const cognitoAuthConfig = {
-  authority: import.meta.env.VITE_COGNITO_DOMAIN,
-  client_id: import.meta.env.VITE_COGNITO_CLIENT_ID,
-  redirect_uri: import.meta.env.VITE_COGNITO_REDIRECT_URI,
-  response_type: 'code',
-  scope: 'aws.cognito.signin.user.admin email openid phone profile',
-};
+import { cognitoAuthConfig } from '@/utils/authConfig';
+
+const Root = () => (
+  <AuthProvider {...cognitoAuthConfig}>
+    <App />
+  </AuthProvider>
+);
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <AuthProvider {...cognitoAuthConfig}>
-      <App />
-    </AuthProvider>
-  </React.StrictMode>,
+  import.meta.env.DEV ? (
+    // Strict mode double-mounts components which breaks the OIDC state machine in development.
+    <Root />
+  ) : (
+    <React.StrictMode>
+      <Root />
+    </React.StrictMode>
+  ),
 );

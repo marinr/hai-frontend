@@ -75,8 +75,9 @@ const ReservationsPage: React.FC = () => {
   }
 
   return (
-    <Panel padding={false} className="flex-1 overflow-hidden flex flex-col">
-      <MultiPropertyCalendar
+    <div className="flex-1 flex flex-col gap-4">
+      <Panel padding={false} className="flex-1 overflow-hidden flex flex-col">
+        <MultiPropertyCalendar
         listings={listings}
         bookings={bookings}
         onBookingClick={handleBookingClick}
@@ -85,7 +86,8 @@ const ReservationsPage: React.FC = () => {
         monthsToShow={12}
         showAgentPanel={false}
       />
-    </Panel>
+      </Panel>
+    </div>
   );
 };
 

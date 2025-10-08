@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plane, DoorOpen, BedDouble, ClipboardList, Calendar, User, MapPin, Clock } from 'lucide-react';
+import { Plane, DoorOpen, BedDouble, User, MapPin, Clock } from 'lucide-react';
 import { useAuth } from 'react-oidc-context';
 
 import Panel from '@/components/Panel';
@@ -7,12 +7,16 @@ import { fetchDashboardData, type DailyGuestInfo, type GuestDetail } from '@/dat
 import { formatDateLabel } from '@/utils/formatDateLabel';
 import {
   fetchReservationTasks,
-  fetchStaffDashboardData,
   fetchStaffMembers,
   type ReservationTask,
   type StaffMember,
   type TaskStatus,
 } from '@/data/staffAssignments';
+import {
+  SAMPLE_HOME_DASHBOARD,
+  SAMPLE_RESERVATION_TASKS,
+  SAMPLE_STAFF_MEMBERS,
+} from '@/data/sampleStaffData';
 
 const TASK_STATUS_META: Record<
   TaskStatus,
@@ -35,17 +39,11 @@ const TASK_STATUS_META: Record<
   },
 };
 
-const formatDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+const normalizeReservationId = (id: string) => id.trim().toLowerCase();
 
 const HomePage: React.FC = () => {
   const auth = useAuth();
   const [dashboardData, setDashboardData] = useState<DailyGuestInfo[]>([]);
-  const [staffDashboardData, setStaffDashboardData] = useState<DailyGuestInfo[]>([]);
   const [reservationTasks, setReservationTasks] = useState<ReservationTask[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,10 +75,8 @@ const HomePage: React.FC = () => {
 
       try {
         const token = auth.user?.access_token;
-        const baseDate = today.toISOString().slice(0, 10);
-        const [dashboard, staffAssignments, tasks, members] = await Promise.all([
+        const [dashboardResponse, taskResponse, memberResponse] = await Promise.all([
           fetchDashboardData(token),
-          fetchStaffDashboardData(baseDate, token),
           fetchReservationTasks(token),
           fetchStaffMembers(token),
         ]);
@@ -89,8 +85,11 @@ const HomePage: React.FC = () => {
           return;
         }
 
+        const dashboard = dashboardResponse.length > 0 ? dashboardResponse : SAMPLE_HOME_DASHBOARD;
+        const tasks = taskResponse.length > 0 ? taskResponse : SAMPLE_RESERVATION_TASKS;
+        const members = memberResponse.length > 0 ? memberResponse : SAMPLE_STAFF_MEMBERS;
+
         setDashboardData(dashboard);
-        setStaffDashboardData(staffAssignments);
         setReservationTasks(tasks);
         setStaffMembers(members);
         setLoading(false);
@@ -99,8 +98,11 @@ const HomePage: React.FC = () => {
           return;
         }
 
-        const message = fetchError instanceof Error ? fetchError.message : 'Failed to load dashboard data.';
-        setError(message);
+        console.error('Failed to fetch dashboard data; using sample data.', fetchError);
+        setDashboardData(SAMPLE_HOME_DASHBOARD);
+        setReservationTasks(SAMPLE_RESERVATION_TASKS);
+        setStaffMembers(SAMPLE_STAFF_MEMBERS);
+        setError(null);
         setLoading(false);
       }
     };
@@ -127,52 +129,24 @@ const HomePage: React.FC = () => {
     );
   }, [dashboardData, selectedDate]);
 
-  const selectedStaffDay = useMemo(() => {
-    if (!selectedDate) return undefined;
-    const key = formatDateKey(selectedDate);
-    return staffDashboardData.find((item) => item.date === key);
-  }, [selectedDate, staffDashboardData]);
-
   const tasksByReservation = useMemo(() => {
     const map = new Map<string, ReservationTask[]>();
     reservationTasks.forEach((task) => {
-      if (map.has(task.reservationId)) {
-        map.get(task.reservationId)!.push(task);
+      const key = normalizeReservationId(task.reservationId);
+      if (map.has(key)) {
+        map.get(key)!.push(task);
       } else {
-        map.set(task.reservationId, [task]);
+        map.set(key, [task]);
       }
     });
     return map;
   }, [reservationTasks]);
-
   const staffById = useMemo(() => {
     return staffMembers.reduce<Record<string, StaffMember>>((acc, member) => {
       acc[member.id] = member;
       return acc;
     }, {});
   }, [staffMembers]);
-
-  const tasksForSelectedDate = useMemo(() => {
-    if (!selectedStaffDay) return [];
-    const reservations = [...selectedStaffDay.arrivals, ...selectedStaffDay.stays, ...selectedStaffDay.departures];
-    const reservationLookup = new Map(reservations.map((detail) => [detail.reservationId, detail]));
-
-    return reservations.flatMap((reservation) => tasksByReservation.get(reservation.reservationId) ?? [])
-      .map((task) => ({
-        task,
-        reservation: reservationLookup.get(task.reservationId)!,
-      }));
-  }, [selectedStaffDay, tasksByReservation]);
-
-  const taskStatusCounts = useMemo(() => {
-    return tasksForSelectedDate.reduce(
-      (acc, { task }) => {
-        acc[task.status] += 1;
-        return acc;
-      },
-      { opened: 0, 'in-progress': 0, done: 0 } as Record<TaskStatus, number>,
-    );
-  }, [tasksForSelectedDate]);
 
   const arrivalsCount = selectedData.arrivals.length;
   const staysCount = selectedData.stays.length;
@@ -365,7 +339,10 @@ const HomePage: React.FC = () => {
                 <p className="text-sm text-gray-500">{emptyCopy}</p>
               ) : (
                 <ul className="space-y-2.5 text-sm text-gray-600">
-                  {items.map((guest) => (
+                  {items.map((guest) => {
+                    const tasks = tasksByReservation.get(normalizeReservationId(guest.reservationId)) ?? [];
+
+                    return (
                     <li
                       key={`${guest.reservationId}-${key}`}
                       className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm hover:shadow transition-shadow"
@@ -451,118 +428,41 @@ const HomePage: React.FC = () => {
                             )}
                           </div>
 
-                          {guest.specialRequests && guest.specialRequests.length > 0 && (
-                            <div className="mt-3 text-xs text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                              <p className="font-bold text-amber-800 mb-1.5 flex items-center gap-1.5">
-                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                Special Requests
-                              </p>
-                              <ul className="space-y-1">
-                                {guest.specialRequests.map((request, idx) => (
-                                  <li key={`special-${guest.reservationId}-${idx}`} className="flex items-start gap-2">
-                                    <span className="text-amber-600 mt-0.5">•</span>
-                                    <span className="text-gray-700">{request}</span>
-                                  </li>
-                                ))}
-                              </ul>
+                          {tasks.length > 0 && (
+                            <div className="mt-3 space-y-1.5">
+                              {tasks.map((task) => {
+                                const statusMeta = TASK_STATUS_META[task.status];
+                                const assignee = task.suggestedStaffId ? staffById[task.suggestedStaffId]?.name : undefined;
+
+                                return (
+                                  <div
+                                    key={task.id}
+                                    className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2 text-xs ${statusMeta.bgClass}`}
+                                  >
+                                    <span className="flex-1 min-w-[180px] font-medium text-gray-800">{task.description}</span>
+                                    <span className="text-gray-600">{assignee ?? 'Unassigned'}</span>
+                                    <span
+                                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusMeta.pillClass}`}
+                                    >
+                                      {statusMeta.label}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
 
-                          {guest.requests && guest.requests.length > 0 && (
-                            <div className="mt-2 text-xs text-gray-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                              <p className="font-bold text-blue-800 mb-1.5 flex items-center gap-1.5">
-                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                Guest Requests
-                              </p>
-                              <ul className="space-y-1">
-                                {guest.requests.map((request, idx) => (
-                                  <li key={`request-${guest.reservationId}-${idx}`} className="flex items-start gap-2">
-                                    <span className="text-blue-600 mt-0.5">•</span>
-                                    <span className="text-gray-700">{request}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {guest.notes && (
-                            <div className="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 italic">
-                              <span className="font-semibold text-gray-700">Note:</span> {guest.notes}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
             </Panel>
           ))}
         </div>
 
-        <Panel className="flex flex-col gap-3 rounded-2xl border border-gray-200/70 shadow-sm bg-gradient-to-br from-gray-50 to-white">
-          <header className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 text-white shadow-sm">
-                <ClipboardList className="h-5 w-5" strokeWidth={2.5} />
-              </span>
-              <div>
-                <h2 className="text-sm font-bold text-gray-800">Staff Tasks</h2>
-                <p className="text-[11px] text-gray-500">{tasksForSelectedDate.length} tasks today</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 text-[10px] font-bold">
-              {(['opened', 'in-progress', 'done'] as TaskStatus[]).map((status) => (
-                <span key={status} className={`rounded-lg px-2 py-1 ${TASK_STATUS_META[status].pillClass} shadow-sm`}>
-                  {taskStatusCounts[status] ?? 0}
-                </span>
-              ))}
-            </div>
-          </header>
-
-          {tasksForSelectedDate.length === 0 ? (
-            <p className="text-sm text-gray-500">No tasks scheduled for this date.</p>
-          ) : (
-            <ul className="space-y-2.5">
-              {tasksForSelectedDate.map(({ task, reservation }) => {
-                const statusMeta = TASK_STATUS_META[task.status];
-                const suggested = task.suggestedStaffId ? staffById[task.suggestedStaffId] : undefined;
-
-                return (
-                  <li
-                    key={task.id}
-                    className={`rounded-xl border px-4 py-3 shadow-sm transition hover:shadow ${statusMeta.bgClass}`}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex-shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white font-bold text-sm text-gray-700 shadow-sm">
-                          {reservation.guestName.charAt(0)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-base font-bold text-gray-900">{reservation.guestName}</p>
-                          <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
-                            <MapPin className="h-3 w-3" />
-                            {reservation.property}
-                          </p>
-                        </div>
-                      </div>
-                      <span className={`flex-shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${statusMeta.pillClass} shadow-sm`}>
-                        {statusMeta.label}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700 leading-relaxed">{task.description}</p>
-                    {suggested && (
-                      <div className="mt-2.5 flex items-center gap-2 text-xs text-gray-600">
-                        <User className="h-3.5 w-3.5" />
-                        <span className="font-semibold">Suggested: {suggested.name}</span>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Panel>
       </div>
     </div>
   );

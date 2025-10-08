@@ -1,5 +1,4 @@
-import type { Handler } from 'aws-lambda';
-import { CognitoJwtVerifier } from 'aws-jwt-verify';
+import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { demoBookings, demoListings } from './mock-data/demoReservations';
 import { getDashboard } from './mock-data/homeDashboard';
 import {
@@ -8,48 +7,13 @@ import {
   STAFF_MEMBERS,
 } from './mock-data/staffAssignments';
 
-// Lambda Function URL event/response types
-interface FunctionUrlEvent {
-  version: string;
-  rawPath: string;
-  rawQueryString: string;
-  headers: Record<string, string>;
-  queryStringParameters?: Record<string, string>;
-  requestContext: {
-    accountId: string;
-    apiId: string;
-    domainName: string;
-    domainPrefix: string;
-    http: {
-      method: string;
-      path: string;
-      protocol: string;
-      sourceIp: string;
-      userAgent: string;
-    };
-    requestId: string;
-    routeKey: string;
-    stage: string;
-    time: string;
-    timeEpoch: number;
-  };
-  body?: string;
-  isBase64Encoded: boolean;
-}
-
-interface FunctionUrlResult {
-  statusCode: number;
-  headers?: Record<string, string>;
-  body: string;
-}
-
 const baseHeaders = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': '*',
   'access-control-allow-methods': 'GET,HEAD,OPTIONS',
 };
 
-const jsonResponse = (statusCode: number, payload: unknown): FunctionUrlResult => ({
+const jsonResponse = (statusCode: number, payload: unknown): APIGatewayProxyResultV2 => ({
   statusCode,
   headers: {
     ...baseHeaders,
@@ -58,54 +22,13 @@ const jsonResponse = (statusCode: number, payload: unknown): FunctionUrlResult =
   body: JSON.stringify(payload),
 });
 
-// Token verification
-const verifyToken = async (
-  event: FunctionUrlEvent
-): Promise<{ isValid: boolean; error?: string; userId?: string }> => {
-  try {
-    // Get User Pool ID from CloudFront custom header
-    const userPoolId = event.headers['x-user-pool-id'];
-    const clientId = event.headers['x-user-pool-client-id'];
-
-    if (!userPoolId || !clientId) {
-      return { isValid: false, error: 'Missing authentication configuration' };
-    }
-
-    // Extract token from Authorization header
-    const authHeader = event.headers.authorization || event.headers.Authorization;
-    if (!authHeader) {
-      return { isValid: false, error: 'Missing authorization header' };
-    }
-
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (!token) {
-      return { isValid: false, error: 'Invalid authorization header format' };
-    }
-
-    // Create verifier (cached across invocations)
-    const verifier = CognitoJwtVerifier.create({
-      userPoolId,
-      tokenUse: 'access',
-      clientId,
-    });
-
-    // Verify the token
-    const payload = await verifier.verify(token);
-    
-    return { isValid: true, userId: payload.sub };
-  } catch (error) {
-    console.error('Token verification failed:', error);
-    return { isValid: false, error: 'Invalid or expired token' };
-  }
-};
-
-const noContentResponse = (statusCode: number): FunctionUrlResult => ({
+const noContentResponse = (statusCode: number): APIGatewayProxyResultV2 => ({
   statusCode,
   headers: baseHeaders,
   body: '',
 });
 
-const parseBaseDate = (event: FunctionUrlEvent): Date => {
+const parseBaseDate = (event: APIGatewayProxyEventV2): Date => {
   const baseDate = event.queryStringParameters?.baseDate;
   if (!baseDate) {
     return new Date();
@@ -115,64 +38,29 @@ const parseBaseDate = (event: FunctionUrlEvent): Date => {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
-const resolvePath = (event: FunctionUrlEvent): string => {
-  const path = event.rawPath ?? event.requestContext.http.path ?? '/';
-  if (path.startsWith('/api/')) {
-    return path;
-  }
-
-  if (path === '/api') {
-    return '/api';
-  }
-
-  if (path.startsWith('/')) {
-    return `/api${path}`;
-  }
-
-  return `/api/${path}`;
-};
-
-export const handler = async (event: FunctionUrlEvent): Promise<FunctionUrlResult> => {
+export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+  // HTTP API v2 format
   const method = event.requestContext.http.method;
+  const path = event.rawPath;
 
+  // Handle OPTIONS for CORS
   if (method === 'OPTIONS') {
     return noContentResponse(204);
   }
 
-  // Verify authentication for all requests except OPTIONS and HEAD
-  if (method !== 'HEAD') {
-    const authResult = await verifyToken(event);
-    if (!authResult.isValid) {
-      return jsonResponse(401, {
-        message: 'Unauthorized',
-        error: authResult.error,
-      });
-    }
-    // Token is valid, user ID available in authResult.userId if needed
-  }
+  // API Gateway Cognito authorizer handles JWT verification
+  // The Lambda receives the request only if the token is valid
+  // User info is available in event.requestContext.authorizer if needed
 
-  if (method === 'HEAD') {
-    // Treat HEAD like GET but omit body; CloudFront may probe with HEAD.
-    const path = resolvePath(event);
-
-    switch (path) {
-      case '/api/dashboard':
-      case '/api/staff/assignments':
-      case '/api/staff/tasks':
-      case '/api/staff/members':
-      case '/api/listings':
-      case '/api/bookings':
-        return noContentResponse(204);
-      default:
-        return noContentResponse(404);
-    }
-  }
-
-  if (method !== 'GET') {
+  if (method !== 'GET' && method !== 'HEAD') {
     return jsonResponse(405, { message: 'Method Not Allowed' });
   }
 
-  switch (resolvePath(event)) {
+  if (method === 'HEAD') {
+    return noContentResponse(200);
+  }
+
+  switch (path) {
     case '/api/dashboard':
       return jsonResponse(200, getDashboard());
     case '/api/staff/assignments':

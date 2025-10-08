@@ -2,9 +2,11 @@ import React from 'react';
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { useAuth } from 'react-oidc-context';
 
+import ChatbotPanel from '@/components/ChatbotPanel';
 import HomePage from '@/pages/HomePage';
 import ReservationsPage from '@/pages/ReservationsPage';
 import StaffPage from '@/pages/StaffPage';
+import { cognitoAuthConfig, resolveRedirectUri } from '@/utils/authConfig';
 
 const Header: React.FC<{ userEmail?: string; onSignOut: () => void }> = ({
   userEmail,
@@ -48,13 +50,20 @@ const App: React.FC = () => {
   const auth = useAuth();
 
   const signOutRedirect = () => {
-    const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
-    const logoutUri = import.meta.env.VITE_COGNITO_REDIRECT_URI;
-    const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN.replace(
-      'https://cognito-idp.eu-central-1.amazonaws.com/',
-      'https://'
-    );
-    window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
+    const postLogoutRedirectUri = resolveRedirectUri();
+    const extraQueryParams: Record<string, string> = {
+      logout_uri: postLogoutRedirectUri,
+      redirect_uri: postLogoutRedirectUri,
+    };
+
+    if (cognitoAuthConfig.client_id) {
+      extraQueryParams.client_id = cognitoAuthConfig.client_id;
+    }
+
+    void auth.signoutRedirect({
+      post_logout_redirect_uri: postLogoutRedirectUri,
+      extraQueryParams,
+    });
   };
 
   if (auth.isLoading) {
@@ -112,6 +121,7 @@ const App: React.FC = () => {
             <Route path="/staff" element={<StaffPage />} />
           </Routes>
         </main>
+        <ChatbotPanel />
       </div>
     </BrowserRouter>
   );

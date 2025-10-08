@@ -12,6 +12,12 @@ import {
 } from '@/data/staffAssignments';
 import type { DailyGuestInfo, GuestDetail } from '@/data/homeDashboard';
 import { formatDateLabel } from '@/utils/formatDateLabel';
+import {
+  SAMPLE_RESERVATION_TASKS,
+  SAMPLE_STAFF_MEMBERS,
+  SAMPLE_STAFF_SCHEDULE,
+  SAMPLE_RESERVATION_DATE,
+} from '@/data/sampleStaffData';
 
 const TASK_STATUS_META: Record<
   TaskStatus,
@@ -62,6 +68,8 @@ const createDateKey = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const normalizeReservationId = (id: string) => id.trim().toLowerCase();
+
 const createInitialSelectedDate = () => {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -75,7 +83,7 @@ interface ReservationWithTasks {
 
 const StaffPage: React.FC = () => {
   const auth = useAuth();
-  const [initialDate] = useState(() => createInitialSelectedDate());
+  const [initialDate, setInitialDate] = useState(() => createInitialSelectedDate());
 
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
   const [taskAssignments, setTaskAssignments] = useState<Record<string, string | undefined>>({});
@@ -105,7 +113,7 @@ const StaffPage: React.FC = () => {
       try {
         const token = auth.user?.access_token;
         const baseDate = initialDate.toISOString().slice(0, 10);
-        const [members, tasks, assignments] = await Promise.all([
+        const [membersResponse, tasksResponse, assignmentsResponse] = await Promise.all([
           fetchStaffMembers(token),
           fetchReservationTasks(token),
           fetchStaffDashboardData(baseDate, token),
@@ -114,6 +122,10 @@ const StaffPage: React.FC = () => {
         if (!active) {
           return;
         }
+
+        const members = membersResponse.length > 0 ? membersResponse : SAMPLE_STAFF_MEMBERS;
+        const tasks = tasksResponse.length > 0 ? tasksResponse : SAMPLE_RESERVATION_TASKS;
+        const assignments = assignmentsResponse.length > 0 ? assignmentsResponse : SAMPLE_STAFF_SCHEDULE;
 
         setStaffMembers(members);
         setReservationTasks(tasks);
@@ -158,14 +170,48 @@ const StaffPage: React.FC = () => {
           return next;
         });
 
+        if (assignments === SAMPLE_STAFF_SCHEDULE) {
+          const sampleDate = new Date(SAMPLE_RESERVATION_DATE);
+          setInitialDate((prev) => {
+            const prevKey = createDateKey(prev);
+            return prevKey === SAMPLE_RESERVATION_DATE ? prev : sampleDate;
+          });
+          setSelectedDate((prev) => {
+            const prevKey = createDateKey(prev);
+            return prevKey === SAMPLE_RESERVATION_DATE ? prev : sampleDate;
+          });
+        }
+
         setLoading(false);
       } catch (fetchError) {
         if (!active) {
           return;
         }
 
-        const message = fetchError instanceof Error ? fetchError.message : 'Failed to load staff data.';
-        setError(message);
+        console.error('Failed to fetch staff dashboard data; using sample data.', fetchError);
+        setStaffMembers(SAMPLE_STAFF_MEMBERS);
+        setReservationTasks(SAMPLE_RESERVATION_TASKS);
+        setStaffSchedule(SAMPLE_STAFF_SCHEDULE);
+        setTaskStatuses(() => {
+          const next: Record<string, TaskStatus> = {};
+          SAMPLE_RESERVATION_TASKS.forEach((task) => {
+            next[task.id] = task.status;
+          });
+          return next;
+        });
+        setTaskAssignments({});
+        setTaskResolutions({});
+        setRemovedTasks({});
+        const sampleDate = new Date(SAMPLE_RESERVATION_DATE);
+        setInitialDate((prev) => {
+          const prevKey = createDateKey(prev);
+          return prevKey === SAMPLE_RESERVATION_DATE ? prev : sampleDate;
+        });
+        setSelectedDate((prev) => {
+          const prevKey = createDateKey(prev);
+          return prevKey === SAMPLE_RESERVATION_DATE ? prev : sampleDate;
+        });
+        setError(null);
         setLoading(false);
       }
     };
@@ -195,10 +241,11 @@ const StaffPage: React.FC = () => {
   const tasksByReservation = useMemo(() => {
     const map = new Map<string, ReservationTask[]>();
     reservationTasks.forEach((task) => {
-      if (map.has(task.reservationId)) {
-        map.get(task.reservationId)!.push(task);
+      const key = normalizeReservationId(task.reservationId);
+      if (map.has(key)) {
+        map.get(key)!.push(task);
       } else {
-        map.set(task.reservationId, [task]);
+        map.set(key, [task]);
       }
     });
     return map;
@@ -216,7 +263,7 @@ const StaffPage: React.FC = () => {
       details.map((detail) => ({
         type,
         detail,
-        tasks: tasksByReservation.get(detail.reservationId) ?? [],
+        tasks: tasksByReservation.get(normalizeReservationId(detail.reservationId)) ?? [],
       }));
 
     return [
@@ -488,12 +535,12 @@ const StaffPage: React.FC = () => {
                       <p className="mt-3 text-[11px] text-gray-600 leading-relaxed">{detail.notes}</p>
                     )}
 
-                    <section className="mt-4">
+                    <section className="mt-3">
                       <h4 className="text-xs font-semibold text-gray-700">Tasks</h4>
                       {tasks.length === 0 ? (
                         <p className="mt-2 text-[11px] text-gray-500">No tasks created yet.</p>
                       ) : (
-                        <ul className="mt-2 space-y-3">
+                        <ul className="mt-2 space-y-2">
                           {tasks
                             .filter((task) => !removedTasks[task.id])
                             .map((task) => {
@@ -508,7 +555,7 @@ const StaffPage: React.FC = () => {
                             return (
                               <li
                                 key={task.id}
-                                className={`rounded-xl border bg-gray-50/70 p-3 transition-shadow ${
+                                className={`rounded-lg border bg-white p-2.5 transition-shadow ${
                                   isActiveDrop ? 'border-blue-400 ring-2 ring-blue-200' : 'border-gray-200'
                                 }`}
                                 onDragOver={handleTaskDragOver}
@@ -517,11 +564,12 @@ const StaffPage: React.FC = () => {
                                 onDragLeave={(event) => handleTaskDragLeave(task.id, event)}
                               >
                                 <div
-                                  className={`-mx-3 -mt-3 flex flex-wrap items-center justify-between gap-3 rounded-t-xl px-4 py-3 ${statusMeta.bannerClass}`}
+                                  className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-[11px] ${statusMeta.bannerClass}`}
                                 >
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-[11px] font-semibold uppercase tracking-wide opacity-80">Status</span>
-                                    <span className="text-sm font-semibold uppercase tracking-wide">{statusMeta.label}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wide">
+                                      {statusMeta.label}
+                                    </span>
                                   </div>
                                   {assignedStaff ? (
                                     <div className="flex items-center gap-2">
@@ -557,11 +605,11 @@ const StaffPage: React.FC = () => {
                                   )}
                                 </div>
 
-                                <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
+                                <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
                                   {(['opened', 'in-progress', 'done'] as TaskStatus[]).map((statusOption) => {
                                     const optionMeta = TASK_STATUS_META[statusOption];
                                     const isActiveStatus = currentStatus === statusOption;
-                                    const baseClasses = 'px-4 py-2 rounded-xl border text-[12px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-300 shadow-sm';
+                                    const baseClasses = 'px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-300';
                                     const stateClasses = isActiveStatus
                                       ? optionMeta.buttonActiveClass
                                       : optionMeta.buttonInactiveClass;
@@ -582,11 +630,11 @@ const StaffPage: React.FC = () => {
                                     );
                                   })}
                                 </div>
-                                <p className="mt-3 text-xs leading-relaxed text-gray-700">{task.description}</p>
-                                <p className="mt-3 text-[11px] text-gray-500 italic">
+                                <p className="mt-2 text-[11px] leading-snug text-gray-700">{task.description}</p>
+                                <p className="mt-2 text-[11px] text-gray-500 italic">
                                   {savedResolution ? `Resolution: ${savedResolution}` : 'Resolution not documented yet.'}
                                 </p>
-                                <div className="mt-3 flex justify-end">
+                                <div className="mt-2 flex justify-end">
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveTask(task.id)}
