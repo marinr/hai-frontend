@@ -1,6 +1,6 @@
 import { DailyGuestInfo } from '../types';
 
-const demoDashboard: DailyGuestInfo[] = [
+export const HOME_DASHBOARD: DailyGuestInfo[] = [
   {
     date: '2020-09-25',
     arrivals: [
@@ -19,6 +19,7 @@ const demoDashboard: DailyGuestInfo[] = [
         notes: 'Guest requested local dining recommendations',
         eta: '16:45',
         delay: '15m',
+        taskIds: ['task-b1-grocery-delivery', 'task-b1-late-checkin'],
       },
     ],
     departures: [
@@ -34,6 +35,7 @@ const demoDashboard: DailyGuestInfo[] = [
         transportation: 'Uber scheduled for 9:30 AM',
         departureTime: '11:00',
         notes: 'Confirm late checkout waiver',
+        taskIds: ['task-b19-waiver', 'task-b19-inspection'],
       },
     ],
     stays: [
@@ -50,6 +52,7 @@ const demoDashboard: DailyGuestInfo[] = [
         requests: ['Extra towels daily'],
         housekeeping: 'Change linens today',
         notes: 'Travels with small dog (approved)',
+        taskIds: ['task-b25-pet-kit'],
       },
     ],
   },
@@ -68,6 +71,7 @@ const demoDashboard: DailyGuestInfo[] = [
         specialRequests: ['Vegan breakfast hamper'],
         transportation: 'Driving, ETA 5 PM',
         notes: 'Vegan breakfast items requested',
+        taskIds: ['task-b21-vegan-hamper', 'task-b21-parking'],
       },
     ],
     departures: [],
@@ -84,6 +88,7 @@ const demoDashboard: DailyGuestInfo[] = [
         requests: ['Fresh coffee beans delivery'],
         housekeeping: 'No service requested',
         notes: 'Deliver city tour tickets to room',
+        taskIds: ['task-b8-tour-tickets', 'task-b8-fridge-sweep'],
       },
     ],
   },
@@ -103,6 +108,7 @@ const demoDashboard: DailyGuestInfo[] = [
         flightNumber: 'DL 992',
         transportation: 'Airport shuttle drop-off 6 PM',
         notes: 'Allergic to feather pillows',
+        taskIds: ['task-b23-plan', 'task-b23-towels', 'task-b23-shuttle'],
       },
     ],
     departures: [
@@ -118,6 +124,7 @@ const demoDashboard: DailyGuestInfo[] = [
         transportation: 'Rental car drop-off 11 AM',
         departureTime: '10:00',
         notes: 'Ensure fridge is emptied',
+        taskIds: ['task-b8-tour-tickets', 'task-b8-fridge-sweep'],
       },
     ],
     stays: [
@@ -134,9 +141,10 @@ const demoDashboard: DailyGuestInfo[] = [
         requests: ['Add portable crib'],
         housekeeping: 'Mid-stay clean tomorrow',
         notes: 'Family of four, baby on site',
+        taskIds: ['task-b5-crib', 'task-b5-midstay'],
       },
     ],
   },
 ];
 
-export const getDashboard = (): DailyGuestInfo[] => demoDashboard;
+export const getDashboard = (): DailyGuestInfo[] => HOME_DASHBOARD;

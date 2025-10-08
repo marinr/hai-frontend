@@ -49,7 +49,10 @@ export interface StayInfo {
   notes?: string;
 }
 
-export type GuestDetail = GuestReservation & Partial<ArrivalInfo & DepartureInfo & StayInfo>;
+export type GuestDetail = GuestReservation &
+  Partial<ArrivalInfo & DepartureInfo & StayInfo> & {
+    taskIds?: string[];
+  };
 
 export interface DailyGuestInfo {
   date: string;

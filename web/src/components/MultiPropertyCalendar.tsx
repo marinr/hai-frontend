@@ -13,6 +13,7 @@ import { useCalendarDates } from '@/hooks/useCalendarDates';
 import { useBookingLayouts } from '@/hooks/useBookingLayouts';
 import { useScrollSync } from '@/hooks/useScrollSync';
 import AgentChatPanel from '@/components/AgentChatPanel';
+import { CHANNEL_COLOR_HEX } from '@/utils/channelColors';
 
 export interface MultiPropertyCalendarProps {
   listings: Listing[];
@@ -379,18 +380,7 @@ export const MultiPropertyCalendar: React.FC<MultiPropertyCalendarProps> = ({
     setVisibleMonthName,
   });
 
-  const getSourceColor = useCallback((source: string) => {
-    switch (source) {
-      case 'airbnb':
-        return '#FF5A5F';
-      case 'vrbo':
-        return '#003B95';
-      case 'direct':
-        return '#10B981';
-      default:
-        return '#6B7280';
-    }
-  }, []);
+  const getSourceColor = useCallback((source: string) => CHANNEL_COLOR_HEX(source), []);
 
   useEffect(() => {
     if (days.length > 0 && !visibleMonthName) {

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Plane, DoorOpen, BedDouble, User, MapPin, Clock } from 'lucide-react';
 import { useAuth } from 'react-oidc-context';
 
+import { Link } from 'react-router-dom';
+
 import Panel from '@/components/Panel';
 import { fetchDashboardData, type DailyGuestInfo, type GuestDetail } from '@/data/homeDashboard';
 import { formatDateLabel } from '@/utils/formatDateLabel';
@@ -17,25 +19,30 @@ import {
   SAMPLE_RESERVATION_TASKS,
   SAMPLE_STAFF_MEMBERS,
 } from '@/data/sampleStaffData';
+import { getChannelColor } from '@/utils/channelColors';
 
 const TASK_STATUS_META: Record<
   TaskStatus,
-  { label: string; bgClass: string; pillClass: string }
+  {
+    label: string;
+    pillClass: string;
+    cardClass: string;
+  }
 > = {
   opened: {
     label: 'Opened',
-    bgClass: 'border-yellow-200 bg-yellow-50',
-    pillClass: 'bg-yellow-500/10 text-yellow-700',
+    pillClass: 'bg-yellow-100 text-yellow-900',
+    cardClass: 'bg-yellow-50/80 border-yellow-200',
   },
   'in-progress': {
     label: 'In-progress',
-    bgClass: 'border-blue-200 bg-blue-50',
-    pillClass: 'bg-blue-500/10 text-blue-700',
+    pillClass: 'bg-blue-100 text-blue-900',
+    cardClass: 'bg-blue-50/80 border-blue-200',
   },
   done: {
     label: 'Done',
-    bgClass: 'border-emerald-200 bg-emerald-50',
-    pillClass: 'bg-emerald-500/10 text-emerald-700',
+    pillClass: 'bg-emerald-100 text-emerald-900',
+    cardClass: 'bg-emerald-50/80 border-emerald-200',
   },
 };
 
@@ -141,6 +148,14 @@ const HomePage: React.FC = () => {
     });
     return map;
   }, [reservationTasks]);
+
+  const tasksById = useMemo(() => {
+    const map = new Map<string, ReservationTask>();
+    reservationTasks.forEach((task) => {
+      map.set(task.id, task);
+    });
+    return map;
+  }, [reservationTasks]);
   const staffById = useMemo(() => {
     return staffMembers.reduce<Record<string, StaffMember>>((acc, member) => {
       acc[member.id] = member;
@@ -151,6 +166,7 @@ const HomePage: React.FC = () => {
   const arrivalsCount = selectedData.arrivals.length;
   const staysCount = selectedData.stays.length;
   const departuresCount = selectedData.departures.length;
+  const selectedDateKey = selectedData.date || selectedDate?.toISOString().slice(0, 10) || '';
 
   const formattedDate = selectedDate?.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -320,15 +336,15 @@ const HomePage: React.FC = () => {
 
         <div className="flex flex-col gap-6">
           {sections.map(({ key, title, items, icon, accentColor, badgeClass, bgGradient, emptyCopy }) => (
-            <Panel key={key} className={`flex flex-col gap-3 rounded-2xl border border-gray-200/70 shadow-sm bg-gradient-to-br ${bgGradient} hover:shadow-md transition-shadow`}>
+            <Panel key={key} className={`flex flex-col gap-3 rounded-2xl border border-gray-200/70 shadow-sm bg-gradient-to-br ${bgGradient} hover:shadow-lg transition-shadow`}>
               <header className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${accentColor} bg-white shadow-sm`}>
                     {icon}
                   </span>
                   <div>
-                    <h3 className="text-sm font-bold text-gray-800">{title}</h3>
-                    <p className="text-[11px] text-gray-500">{items.length === 0 ? emptyCopy : `${items.length} scheduled`}</p>
+                    <h3 className="text-base font-extrabold text-gray-900 tracking-wide">{title}</h3>
+                    <p className="text-[12px] font-medium text-gray-600">{items.length === 0 ? emptyCopy : `${items.length} scheduled`}</p>
                   </div>
                 </div>
                 <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${badgeClass} shadow-sm`}>
@@ -340,39 +356,57 @@ const HomePage: React.FC = () => {
               ) : (
                 <ul className="space-y-2.5 text-sm text-gray-600">
                   {items.map((guest) => {
-                    const tasks = tasksByReservation.get(normalizeReservationId(guest.reservationId)) ?? [];
+                    const primaryTasks =
+                      tasksByReservation.get(normalizeReservationId(guest.reservationId)) ?? [];
+                    const fallbackTasks = (guest.taskIds ?? [])
+                      .map((taskId) => tasksById.get(taskId))
+                      .filter((task): task is ReservationTask => Boolean(task));
+                    const tasks = primaryTasks.length > 0 ? primaryTasks : fallbackTasks;
+                    const channelColors = getChannelColor(guest.channel);
 
                     return (
                     <li
                       key={`${guest.reservationId}-${key}`}
-                      className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm hover:shadow transition-shadow"
+                      className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-lg"
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`flex-shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg ${accentColor} bg-gradient-to-br ${bgGradient} font-bold text-base shadow-sm`}>
+                        <div
+                          className={`flex-shrink-0 inline-flex h-12 w-12 items-center justify-center rounded-xl ${accentColor} bg-gradient-to-br ${bgGradient} font-bold text-lg shadow-md`}
+                          aria-hidden
+                        >
                           {guest.guestName.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="min-w-0">
-                              <p className="text-base font-bold text-gray-900">{guest.guestName}</p>
-                              <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                            <div className="min-w-0 pr-2">
+                              <p className="text-lg font-extrabold text-gray-900 leading-tight">{guest.guestName}</p>
+                              <p className="text-[12px] text-gray-500 flex items-center gap-1.5 mt-1">
                                 <MapPin className="h-3 w-3" />
-                                {guest.property} · {guest.channel}
+                                <span className="truncate font-medium text-gray-600">{guest.property}</span>
+                                <span
+                                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide shadow-sm"
+                                  style={{
+                                    backgroundColor: channelColors.background,
+                                    color: channelColors.text,
+                                  }}
+                                >
+                                  {guest.channel}
+                                </span>
                               </p>
                             </div>
-                            <span className={`text-xs font-bold ${accentColor} whitespace-nowrap`}>#{guest.reservationId}</span>
+                            <span className={`text-sm font-bold ${accentColor} whitespace-nowrap`}>#{guest.reservationId}</span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
                             <div className="flex items-center gap-1.5">
                               <Clock className="h-3.5 w-3.5 text-gray-400" />
-                              <span className="font-medium text-gray-700">Check-in:</span>
-                              <span className="text-gray-600">{formatDateTime(guest.checkIn)}</span>
+                              <span className="font-semibold text-gray-700 uppercase tracking-wide">Check-in</span>
+                              <span className="text-gray-700 font-medium">{formatDateTime(guest.checkIn)}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <Clock className="h-3.5 w-3.5 text-gray-400" />
-                              <span className="font-medium text-gray-700">Check-out:</span>
-                              <span className="text-gray-600">{formatDateTime(guest.checkOut)}</span>
+                              <span className="font-semibold text-gray-700 uppercase tracking-wide">Check-out</span>
+                              <span className="text-gray-700 font-medium">{formatDateTime(guest.checkOut)}</span>
                             </div>
 
                             {guest.flightNumber && (
@@ -429,27 +463,43 @@ const HomePage: React.FC = () => {
                           </div>
 
                           {tasks.length > 0 && (
-                            <div className="mt-3 space-y-1.5">
+                            <ul className="mt-3 space-y-1">
                               {tasks.map((task) => {
                                 const statusMeta = TASK_STATUS_META[task.status];
-                                const assignee = task.suggestedStaffId ? staffById[task.suggestedStaffId]?.name : undefined;
+                                const suggested = task.suggestedStaffId ? staffById[task.suggestedStaffId] : undefined;
+                                const staffTaskUrl = selectedDateKey
+                                  ? `/staff?date=${encodeURIComponent(selectedDateKey)}&taskId=${encodeURIComponent(task.id)}`
+                                  : `/staff?taskId=${encodeURIComponent(task.id)}`;
 
                                 return (
-                                  <div
-                                    key={task.id}
-                                    className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2 text-xs ${statusMeta.bgClass}`}
-                                  >
-                                    <span className="flex-1 min-w-[180px] font-medium text-gray-800">{task.description}</span>
-                                    <span className="text-gray-600">{assignee ?? 'Unassigned'}</span>
-                                    <span
-                                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusMeta.pillClass}`}
-                                    >
-                                      {statusMeta.label}
-                                    </span>
-                                  </div>
+                                  <li key={task.id}>
+                                    <div className={`rounded-lg border px-3 py-2 text-[11px] shadow-sm ${statusMeta.cardClass}`}>
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusMeta.pillClass}`}
+                                        >
+                                          {statusMeta.label}
+                                        </span>
+                                        <span className="flex-1 min-w-0 text-gray-900 leading-tight font-medium">
+                                          {task.description}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-gray-500">
+                                        <span className="truncate">
+                                          {suggested?.name ?? 'Unassigned'}
+                                        </span>
+                                        <Link
+                                          to={staffTaskUrl}
+                                          className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
+                                        >
+                                          View
+                                        </Link>
+                                      </div>
+                                    </div>
+                                  </li>
                                 );
                               })}
-                            </div>
+                            </ul>
                           )}
 
                         </div>

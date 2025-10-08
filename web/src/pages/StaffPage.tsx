@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from 'react-oidc-context';
+import { useSearchParams } from 'react-router-dom';
 
 import Panel from '@/components/Panel';
 import {
@@ -18,35 +19,36 @@ import {
   SAMPLE_STAFF_SCHEDULE,
   SAMPLE_RESERVATION_DATE,
 } from '@/data/sampleStaffData';
+import { getChannelColor } from '@/utils/channelColors';
 
 const TASK_STATUS_META: Record<
   TaskStatus,
   {
     label: string;
     pillClass: string;
-    bannerClass: string;
+    cardClass: string;
     buttonActiveClass: string;
     buttonInactiveClass: string;
   }
 > = {
   opened: {
     label: 'Opened',
-    pillClass: 'bg-yellow-100 text-yellow-800',
-    bannerClass: 'bg-yellow-200 text-yellow-900',
+    pillClass: 'bg-yellow-100 text-yellow-900',
+    cardClass: 'bg-yellow-50/80 border-yellow-200',
     buttonActiveClass: 'bg-yellow-500 text-white border-yellow-500 shadow-lg',
     buttonInactiveClass: 'border-yellow-400 text-yellow-800 hover:bg-yellow-100',
   },
   'in-progress': {
     label: 'In-progress',
-    pillClass: 'bg-blue-100 text-blue-700',
-    bannerClass: 'bg-blue-200 text-blue-900',
+    pillClass: 'bg-blue-100 text-blue-900',
+    cardClass: 'bg-blue-50/80 border-blue-200',
     buttonActiveClass: 'bg-blue-500 text-white border-blue-500 shadow-lg',
     buttonInactiveClass: 'border-blue-400 text-blue-800 hover:bg-blue-100',
   },
   done: {
     label: 'Done',
-    pillClass: 'bg-green-100 text-green-700',
-    bannerClass: 'bg-green-200 text-green-900',
+    pillClass: 'bg-green-100 text-green-900',
+    cardClass: 'bg-emerald-50/80 border-emerald-200',
     buttonActiveClass: 'bg-green-500 text-white border-green-500 shadow-lg',
     buttonInactiveClass: 'border-green-400 text-green-800 hover:bg-green-100',
   },
@@ -83,6 +85,7 @@ interface ReservationWithTasks {
 
 const StaffPage: React.FC = () => {
   const auth = useAuth();
+  const [searchParams] = useSearchParams();
   const [initialDate, setInitialDate] = useState(() => createInitialSelectedDate());
 
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
@@ -96,6 +99,31 @@ const StaffPage: React.FC = () => {
   } | null>(null);
   const [activeDropTaskId, setActiveDropTaskId] = useState<string | null>(null);
   const [draggedStaffId, setDraggedStaffId] = useState<string | null>(null);
+  const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
+  const taskRefs = useRef<Record<string, HTMLLIElement | null>>({});
+
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    const taskParam = searchParams.get('taskId');
+
+    if (dateParam) {
+      const parsed = new Date(dateParam);
+      if (!Number.isNaN(parsed.getTime())) {
+        const normalized = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+        const normalizedKey = createDateKey(normalized);
+
+        if (createDateKey(initialDate) !== normalizedKey) {
+          setInitialDate(normalized);
+        }
+
+        if (createDateKey(selectedDate) !== normalizedKey) {
+          setSelectedDate(normalized);
+        }
+      }
+    }
+
+    setHighlightTaskId(taskParam);
+  }, [searchParams, initialDate, selectedDate]);
 
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [reservationTasks, setReservationTasks] = useState<ReservationTask[]>([]);
@@ -251,6 +279,14 @@ const StaffPage: React.FC = () => {
     return map;
   }, [reservationTasks]);
 
+  const tasksById = useMemo(() => {
+    const map = new Map<string, ReservationTask>();
+    reservationTasks.forEach((task) => {
+      map.set(task.id, task);
+    });
+    return map;
+  }, [reservationTasks]);
+
   const selectedDateKey = useMemo(() => createDateKey(selectedDate), [selectedDate]);
 
   const reservationsForDay: ReservationWithTasks[] = useMemo(() => {
@@ -260,18 +296,37 @@ const StaffPage: React.FC = () => {
     }
 
     const build = (details: GuestDetail[], type: ReservationWithTasks['type']) =>
-      details.map((detail) => ({
-        type,
-        detail,
-        tasks: tasksByReservation.get(normalizeReservationId(detail.reservationId)) ?? [],
-      }));
+      details.map((detail) => {
+        const directTasks = tasksByReservation.get(normalizeReservationId(detail.reservationId)) ?? [];
+        const fallbackTasks = (detail.taskIds ?? [])
+          .map((taskId) => tasksById.get(taskId))
+          .filter((task): task is ReservationTask => Boolean(task));
+        const combinedTasks = directTasks.length > 0 ? directTasks : fallbackTasks;
+
+        return {
+          type,
+          detail,
+          tasks: combinedTasks,
+        };
+      });
 
     return [
       ...build(day.arrivals, 'arrival'),
       ...build(day.stays, 'stay'),
       ...build(day.departures, 'departure'),
     ];
-  }, [staffSchedule, selectedDateKey, tasksByReservation]);
+  }, [staffSchedule, selectedDateKey, tasksByReservation, tasksById]);
+
+  useEffect(() => {
+    if (!highlightTaskId) {
+      return;
+    }
+
+    const node = taskRefs.current[highlightTaskId];
+    if (node) {
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightTaskId, reservationsForDay]);
 
   const reservationsTaskCount = useMemo(
     () => reservationsForDay.reduce((total, reservation) => total + reservation.tasks.length, 0),
@@ -499,48 +554,41 @@ const StaffPage: React.FC = () => {
               reservationsForDay.map((reservation) => {
                 const { detail, type, tasks } = reservation;
                 const typeMeta = RESERVATION_TYPE_META[type];
+                const channelColors = getChannelColor(detail.channel);
 
                 return (
                   <article
                     key={`${detail.reservationId}-${type}`}
-                    className="rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-sm"
+                    className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
                   >
-                    <header className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900">{detail.guestName}</h3>
-                        <p className="text-xs text-gray-500">
-                          {detail.property} · {detail.channel}
-                        </p>
+                    <header className="flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide shadow-sm ${typeMeta.className}`}
+                        >
+                          {typeMeta.label}
+                        </span>
+                        <p className="text-lg font-extrabold text-gray-900 leading-tight">{detail.guestName}</p>
+                        <span
+                          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide shadow-sm"
+                          style={{ backgroundColor: channelColors.background, color: channelColors.text }}
+                        >
+                          {detail.channel}
+                        </span>
                       </div>
-                      <span className={`text-[11px] font-medium px-2 py-1 rounded-full ${typeMeta.className}`}>
-                        {typeMeta.label}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-3 text-[12px] font-medium text-gray-600">
+                        <span className="max-w-[180px] truncate" title={detail.property}>{detail.property}</span>
+                        <span className="text-gray-700 font-semibold">
+                          {formatDateTime(detail.checkIn)} → {formatDateTime(detail.checkOut)}
+                        </span>
+                      </div>
                     </header>
 
-                    <dl
-                      className="mt-3 grid gap-3 text-[11px] text-gray-600"
-                      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}
-                    >
-                      <div>
-                        <dt className="font-semibold text-gray-700">Check-in</dt>
-                        <dd>{formatDateTime(detail.checkIn)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-gray-700">Check-out</dt>
-                        <dd>{formatDateTime(detail.checkOut)}</dd>
-                      </div>
-                    </dl>
-
-                    {detail.notes && (
-                      <p className="mt-3 text-[11px] text-gray-600 leading-relaxed">{detail.notes}</p>
-                    )}
-
-                    <section className="mt-3">
-                      <h4 className="text-xs font-semibold text-gray-700">Tasks</h4>
+                    <section className="mt-2">
                       {tasks.length === 0 ? (
-                        <p className="mt-2 text-[11px] text-gray-500">No tasks created yet.</p>
+                        <p className="text-[11px] text-gray-500">No tasks created yet.</p>
                       ) : (
-                        <ul className="mt-2 space-y-2">
+                        <ul className="space-y-1.5">
                           {tasks
                             .filter((task) => !removedTasks[task.id])
                             .map((task) => {
@@ -552,96 +600,103 @@ const StaffPage: React.FC = () => {
                             const isActiveDrop = activeDropTaskId === task.id;
                             const savedResolution = taskResolutions[task.id] ?? '';
 
+                            const isHighlighted = highlightTaskId === task.id;
+
                             return (
                               <li
                                 key={task.id}
-                                className={`rounded-lg border bg-white p-2.5 transition-shadow ${
-                                  isActiveDrop ? 'border-blue-400 ring-2 ring-blue-200' : 'border-gray-200'
+                                ref={(node) => {
+                                  if (node) {
+                                    taskRefs.current[task.id] = node;
+                                  } else {
+                                    delete taskRefs.current[task.id];
+                                  }
+                                }}
+                                className={`rounded-lg border p-2 shadow-sm transition-shadow ${
+                                  isActiveDrop
+                                    ? 'border-blue-400 ring-2 ring-blue-200'
+                                    : isHighlighted
+                                    ? 'border-blue-300 ring-2 ring-blue-300'
+                                    : statusMeta.cardClass
                                 }`}
                                 onDragOver={handleTaskDragOver}
                                 onDrop={(event) => handleTaskDrop(event, task.id)}
                                 onDragEnter={() => handleTaskDragEnter(task.id)}
                                 onDragLeave={(event) => handleTaskDragLeave(task.id, event)}
                               >
-                                <div
-                                  className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-[11px] ${statusMeta.bannerClass}`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-semibold uppercase tracking-wide">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex flex-1 items-start gap-2">
+                                    <span
+                                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusMeta.pillClass}`}
+                                    >
                                       {statusMeta.label}
                                     </span>
+                                    <p className="flex-1 min-w-0 text-[11px] font-semibold leading-tight text-gray-800">
+                                      {task.description}
+                                    </p>
                                   </div>
-                                  {assignedStaff ? (
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-[11px] font-semibold text-current"
-                                        title={assignedStaff.name}
-                                      >
-                                        {assignedStaff.name
-                                          .split(' ')
-                                          .map((part) => part.charAt(0))
-                                          .join('')}
-                                      </span>
-                                      <div className="text-right">
-                                        <p className="text-[11px] font-semibold">{assignedStaff.name}</p>
-                                        <p className="text-[10px] text-gray-600">{assignedStaff.role}</p>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => clearAssignment(task.id)}
-                                        aria-label="Clear assignment"
-                                        className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/60 text-[11px] font-bold text-blue-700 hover:bg-white hover:text-blue-900"
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ) : suggestedStaff ? (
-                                    <div className="flex items-center gap-2 text-[10px] text-gray-700">
-                                      <span className="font-semibold text-gray-600">Suggested:</span>
-                                      <span className="font-semibold text-blue-600">{suggestedStaff.name}</span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-[10px] text-gray-500">Unassigned</span>
-                                  )}
-                                </div>
-
-                                <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
-                                  {(['opened', 'in-progress', 'done'] as TaskStatus[]).map((statusOption) => {
-                                    const optionMeta = TASK_STATUS_META[statusOption];
-                                    const isActiveStatus = currentStatus === statusOption;
-                                    const baseClasses = 'px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-300';
-                                    const stateClasses = isActiveStatus
-                                      ? optionMeta.buttonActiveClass
-                                      : optionMeta.buttonInactiveClass;
-                                    return (
-                                      <button
-                                        key={`${task.id}-${statusOption}`}
-                                        type="button"
-                                        onClick={() => {
-                                          if (statusOption === 'done' && currentStatus !== 'done') {
-                                            handleOpenResolutionModal(task.id);
-                                          }
-                                          handleTaskStatusChange(task.id, statusOption);
-                                        }}
-                                        className={`${baseClasses} ${stateClasses}`}
-                                      >
-                                        {optionMeta.label}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                                <p className="mt-2 text-[11px] leading-snug text-gray-700">{task.description}</p>
-                                <p className="mt-2 text-[11px] text-gray-500 italic">
-                                  {savedResolution ? `Resolution: ${savedResolution}` : 'Resolution not documented yet.'}
-                                </p>
-                                <div className="mt-2 flex justify-end">
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveTask(task.id)}
-                                    className="text-[11px] font-semibold text-red-600 hover:text-red-700"
+                                    aria-label="Remove task"
+                                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-red-200 text-[12px] font-bold text-red-600 hover:border-red-400 hover:text-red-700"
                                   >
-                                    Remove
+                                    ×
                                   </button>
+                                </div>
+
+                                <div className="mt-2 text-[10px] italic text-gray-500 truncate">
+                                  {savedResolution ? `Resolution: ${savedResolution}` : 'Resolution not documented yet.'}
+                                </div>
+
+                                <div className="mt-2 flex items-end justify-between gap-2">
+                                  <div className="flex items-center gap-1 text-[10px] text-gray-600">
+                                    {assignedStaff ? (
+                                      <>
+                                        <span className="max-w-[140px] truncate font-semibold text-gray-700" title={assignedStaff.name}>
+                                          {assignedStaff.name}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => clearAssignment(task.id)}
+                                          aria-label="Clear assignee"
+                                          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-gray-500 hover:border-red-400 hover:text-red-600"
+                                        >
+                                          ×
+                                        </button>
+                                      </>
+                                    ) : suggestedStaff ? (
+                                      <span className="font-semibold text-blue-600">Suggested: {suggestedStaff.name}</span>
+                                    ) : (
+                                      <span className="text-gray-400">Unassigned</span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex flex-wrap justify-end gap-1 text-[10px]">
+                                    {(['opened', 'in-progress', 'done'] as TaskStatus[]).map((statusOption) => {
+                                      const optionMeta = TASK_STATUS_META[statusOption];
+                                      const isActiveStatus = currentStatus === statusOption;
+                                      const baseClasses = 'px-2 py-0.5 rounded-md border text-[10px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-300';
+                                      const stateClasses = isActiveStatus
+                                        ? optionMeta.buttonActiveClass
+                                        : optionMeta.buttonInactiveClass;
+                                      return (
+                                        <button
+                                          key={`${task.id}-${statusOption}`}
+                                          type="button"
+                                          onClick={() => {
+                                            if (statusOption === 'done' && currentStatus !== 'done') {
+                                              handleOpenResolutionModal(task.id);
+                                            }
+                                            handleTaskStatusChange(task.id, statusOption);
+                                          }}
+                                          className={`${baseClasses} ${stateClasses}`}
+                                        >
+                                          {optionMeta.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                               </li>
                             );
