@@ -19,6 +19,7 @@ import {
   SAMPLE_STAFF_SCHEDULE,
   SAMPLE_RESERVATION_DATE,
 } from '@/data/sampleStaffData';
+import { groupTasksByReservation, indexTasksById, normalizeReservationId } from '@/utils/reservations';
 import { getChannelColor } from '@/utils/channelColors';
 
 const TASK_STATUS_META: Record<
@@ -69,8 +70,6 @@ const createDateKey = (date: Date): string => {
   const day = `${date.getDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-
-const normalizeReservationId = (id: string) => id.trim().toLowerCase();
 
 const createInitialSelectedDate = () => {
   const now = new Date();
@@ -266,26 +265,9 @@ const StaffPage: React.FC = () => {
     });
   }, [initialDate]);
 
-  const tasksByReservation = useMemo(() => {
-    const map = new Map<string, ReservationTask[]>();
-    reservationTasks.forEach((task) => {
-      const key = normalizeReservationId(task.reservationId);
-      if (map.has(key)) {
-        map.get(key)!.push(task);
-      } else {
-        map.set(key, [task]);
-      }
-    });
-    return map;
-  }, [reservationTasks]);
+  const tasksByReservation = useMemo(() => groupTasksByReservation(reservationTasks), [reservationTasks]);
 
-  const tasksById = useMemo(() => {
-    const map = new Map<string, ReservationTask>();
-    reservationTasks.forEach((task) => {
-      map.set(task.id, task);
-    });
-    return map;
-  }, [reservationTasks]);
+  const tasksById = useMemo(() => indexTasksById(reservationTasks), [reservationTasks]);
 
   const selectedDateKey = useMemo(() => createDateKey(selectedDate), [selectedDate]);
 
@@ -639,9 +621,9 @@ const StaffPage: React.FC = () => {
                                     type="button"
                                     onClick={() => handleRemoveTask(task.id)}
                                     aria-label="Remove task"
-                                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-red-200 text-[12px] font-bold text-red-600 hover:border-red-400 hover:text-red-700"
+                                    className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-[12px] font-bold text-white hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
                                   >
-                                    ×
+                                    x
                                   </button>
                                 </div>
 
