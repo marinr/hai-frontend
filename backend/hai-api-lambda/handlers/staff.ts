@@ -6,7 +6,7 @@ import {
   deleteStaff,
   listStaff,
 } from '../repositories/staffRepository';
-import { jsonResponse, errorResponse } from '../utils/response';
+import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
 
 export async function handleStaff(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const method = event.requestContext.http.method;
@@ -51,7 +51,7 @@ export async function handleStaff(event: APIGatewayProxyEventV2): Promise<APIGat
           return errorResponse(400, 'Staff ID is required');
         }
         await deleteStaff(id);
-        return jsonResponse(204, null);
+        return noContentResponse(204);
 
       default:
         return errorResponse(405, 'Method not allowed');

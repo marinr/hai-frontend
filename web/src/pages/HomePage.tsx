@@ -13,16 +13,7 @@ import {
   type StaffMember,
   type TaskStatus,
 } from '@/data/staffAssignments';
-import {
-  SAMPLE_HOME_DASHBOARD,
-  SAMPLE_RESERVATION_TASKS,
-  SAMPLE_STAFF_MEMBERS,
-} from '@/data/sampleStaffData';
-import {
-  groupTasksByReservation,
-  indexTasksById,
-  normalizeReservationId,
-} from '@/utils/reservations';
+import { groupTasksByReservation, indexTasksById, normalizeReservationId } from '@/utils/reservations';
 
 const TASK_STATUS_META: Record<
   TaskStatus,
@@ -49,6 +40,18 @@ const TASK_STATUS_META: Record<
   },
 };
 
+const startOfCurrentDay = (): Date => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+const toDateKey = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  const day = `${value.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const HomePage: React.FC = () => {
   const auth = useAuth();
   const [dashboardData, setDashboardData] = useState<DailyGuestInfo[]>([]);
@@ -58,7 +61,7 @@ const HomePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  const today = useMemo(() => new Date('2020-09-25T00:00:00'), []);
+  const today = useMemo(() => startOfCurrentDay(), []);
   const days = useMemo(() => {
     return Array.from({ length: 10 }, (_, idx) => {
       const date = new Date(today);
@@ -84,7 +87,7 @@ const HomePage: React.FC = () => {
       try {
         const token = auth.user?.access_token;
         const [dashboardResponse, taskResponse, memberResponse] = await Promise.all([
-          fetchDashboardData(token),
+          fetchDashboardData({ token, startDate: today, days: 10 }),
           fetchReservationTasks(token),
           fetchStaffMembers(token),
         ]);
@@ -93,24 +96,20 @@ const HomePage: React.FC = () => {
           return;
         }
 
-        const dashboard = dashboardResponse.length > 0 ? dashboardResponse : SAMPLE_HOME_DASHBOARD;
-        const tasks = taskResponse.length > 0 ? taskResponse : SAMPLE_RESERVATION_TASKS;
-        const members = memberResponse.length > 0 ? memberResponse : SAMPLE_STAFF_MEMBERS;
-
-        setDashboardData(dashboard);
-        setReservationTasks(tasks);
-        setStaffMembers(members);
+        setDashboardData(dashboardResponse);
+        setReservationTasks(taskResponse);
+        setStaffMembers(memberResponse);
         setLoading(false);
       } catch (fetchError) {
         if (!active) {
           return;
         }
 
-        console.error('Failed to fetch dashboard data; using sample data.', fetchError);
-        setDashboardData(SAMPLE_HOME_DASHBOARD);
-        setReservationTasks(SAMPLE_RESERVATION_TASKS);
-        setStaffMembers(SAMPLE_STAFF_MEMBERS);
-        setError(null);
+        console.error('Failed to fetch dashboard data.', fetchError);
+        setDashboardData([]);
+        setReservationTasks([]);
+        setStaffMembers([]);
+        setError('Unable to load dashboard data right now.');
         setLoading(false);
       }
     };
@@ -126,7 +125,7 @@ const HomePage: React.FC = () => {
     if (!selectedDate) {
       return { date: '', arrivals: [], departures: [], stays: [] };
     }
-    const formatted = selectedDate.toISOString().slice(0, 10);
+    const formatted = toDateKey(selectedDate);
     return (
       dashboardData.find((item) => item.date === formatted) ?? {
         date: formatted,
@@ -150,7 +149,7 @@ const HomePage: React.FC = () => {
   const arrivalsCount = selectedData.arrivals.length;
   const staysCount = selectedData.stays.length;
   const departuresCount = selectedData.departures.length;
-  const selectedDateKey = selectedData.date || selectedDate?.toISOString().slice(0, 10) || '';
+  const selectedDateKey = selectedData.date || (selectedDate ? toDateKey(selectedDate) : '');
 
   const formattedDate = selectedDate?.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -216,8 +215,18 @@ const HomePage: React.FC = () => {
     },
   ];
 
-  const formatDateTime = (value: string) =>
-    new Date(value).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const formatDateTime = (value: string) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+    return parsed.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6 xl:flex-row">

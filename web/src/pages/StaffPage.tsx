@@ -7,6 +7,8 @@ import {
   fetchReservationTasks,
   fetchStaffDashboardData,
   fetchStaffMembers,
+  updateTask as updateReservationTask,
+  deleteTask as deleteReservationTask,
   type ReservationTask,
   type StaffMember,
   type TaskStatus,
@@ -91,11 +93,11 @@ const StaffPage: React.FC = () => {
   const [taskAssignments, setTaskAssignments] = useState<Record<string, string | undefined>>({});
   const [taskStatuses, setTaskStatuses] = useState<Record<string, TaskStatus>>({});
   const [taskResolutions, setTaskResolutions] = useState<Record<string, string>>({});
-  const [removedTasks, setRemovedTasks] = useState<Record<string, boolean>>({});
   const [resolutionModal, setResolutionModal] = useState<{
     taskId: string;
     value: string;
   } | null>(null);
+  const [taskPendingDelete, setTaskPendingDelete] = useState<ReservationTask | null>(null);
   const [activeDropTaskId, setActiveDropTaskId] = useState<string | null>(null);
   const [draggedStaffId, setDraggedStaffId] = useState<string | null>(null);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
@@ -157,41 +159,29 @@ const StaffPage: React.FC = () => {
         setStaffMembers(members);
         setReservationTasks(tasks);
         setStaffSchedule(assignments);
-        setTaskStatuses((prev) => {
+        setTaskStatuses(() => {
           const next: Record<string, TaskStatus> = {};
-
           tasks.forEach((task) => {
-            next[task.id] = prev[task.id] ?? task.status;
+            next[task.id] = task.status;
           });
-
           return next;
         });
 
-        setTaskAssignments((prev) => {
+        setTaskAssignments(() => {
           const next: Record<string, string | undefined> = {};
           tasks.forEach((task) => {
-            if (prev[task.id]) {
-              next[task.id] = prev[task.id];
+            if (task.assignedStaffId) {
+              next[task.id] = task.assignedStaffId;
             }
           });
           return next;
         });
 
-        setTaskResolutions((prev) => {
+        setTaskResolutions(() => {
           const next: Record<string, string> = {};
           tasks.forEach((task) => {
-            if (prev[task.id]) {
-              next[task.id] = prev[task.id];
-            }
-          });
-          return next;
-        });
-
-        setRemovedTasks((prev) => {
-          const next: Record<string, boolean> = {};
-          tasks.forEach((task) => {
-            if (prev[task.id]) {
-              next[task.id] = prev[task.id];
+            if (task.resolution) {
+              next[task.id] = task.resolution;
             }
           });
           return next;
@@ -226,9 +216,24 @@ const StaffPage: React.FC = () => {
           });
           return next;
         });
-        setTaskAssignments({});
-        setTaskResolutions({});
-        setRemovedTasks({});
+        setTaskAssignments(() => {
+          const next: Record<string, string | undefined> = {};
+          SAMPLE_RESERVATION_TASKS.forEach((task) => {
+            if (task.assignedStaffId) {
+              next[task.id] = task.assignedStaffId;
+            }
+          });
+          return next;
+        });
+        setTaskResolutions(() => {
+          const next: Record<string, string> = {};
+          SAMPLE_RESERVATION_TASKS.forEach((task) => {
+            if (task.resolution) {
+              next[task.id] = task.resolution;
+            }
+          });
+          return next;
+        });
         const sampleDate = new Date(SAMPLE_RESERVATION_DATE);
         setInitialDate((prev) => {
           const prevKey = createDateKey(prev);
@@ -344,16 +349,59 @@ const StaffPage: React.FC = () => {
     setDraggedStaffId(null);
   }, []);
 
+  const syncTaskState = useCallback((updatedTask: ReservationTask) => {
+    setReservationTasks((prev) => {
+      const exists = prev.some((task) => task.id === updatedTask.id);
+      if (exists) {
+        return prev.map((task) => (task.id === updatedTask.id ? updatedTask : task));
+      }
+      return [...prev, updatedTask];
+    });
+
+    setTaskStatuses((prev) => ({ ...prev, [updatedTask.id]: updatedTask.status }));
+
+    setTaskResolutions((prev) => {
+      const next = { ...prev };
+      if (updatedTask.resolution) {
+        next[updatedTask.id] = updatedTask.resolution;
+      } else {
+        delete next[updatedTask.id];
+      }
+      return next;
+    });
+
+    setTaskAssignments((prev) => {
+      const next = { ...prev };
+      if (updatedTask.assignedStaffId) {
+        next[updatedTask.id] = updatedTask.assignedStaffId;
+      } else {
+        delete next[updatedTask.id];
+      }
+      return next;
+    });
+  }, []);
+
   const handleTaskDrop = useCallback(
-    (event: React.DragEvent<HTMLLIElement>, taskId: string) => {
+    async (event: React.DragEvent<HTMLLIElement>, taskId: string) => {
       event.preventDefault();
       const staffId = event.dataTransfer.getData('text/plain');
-      if (!staffId) return;
-      setTaskAssignments((prev) => ({ ...prev, [taskId]: staffId }));
-      setActiveDropTaskId(null);
-      setDraggedStaffId(null);
+      if (!staffId) {
+        setActiveDropTaskId(null);
+        setDraggedStaffId(null);
+        return;
+      }
+
+      try {
+        const updated = await updateReservationTask(taskId, { staffId }, auth.user?.access_token);
+        syncTaskState(updated);
+      } catch (error) {
+        console.error('Failed to assign task', error);
+      } finally {
+        setActiveDropTaskId(null);
+        setDraggedStaffId(null);
+      }
     },
-    [],
+    [auth.user?.access_token, syncTaskState],
   );
 
   const handleTaskDragOver = useCallback((event: React.DragEvent<HTMLLIElement>) => {
@@ -373,50 +421,109 @@ const StaffPage: React.FC = () => {
     setActiveDropTaskId((prev) => (prev === taskId ? null : prev));
   }, []);
 
-  const handleTaskStatusChange = useCallback((taskId: string, status: TaskStatus) => {
-    setTaskStatuses((prev) => ({ ...prev, [taskId]: status }));
-  }, []);
+  const handleTaskStatusChange = useCallback(
+    async (taskId: string, status: TaskStatus) => {
+      try {
+        const updated = await updateReservationTask(taskId, { status }, auth.user?.access_token);
+        syncTaskState(updated);
+      } catch (error) {
+        console.error('Failed to update task status', error);
+      }
+    },
+    [auth.user?.access_token, syncTaskState],
+  );
 
-  const handleOpenResolutionModal = useCallback((taskId: string) => {
-    setResolutionModal({ taskId, value: taskResolutions[taskId] ?? '' });
-  }, [taskResolutions]);
+  const handleOpenResolutionModal = useCallback(
+    (taskId: string) => {
+      const task = reservationTasks.find((item) => item.id === taskId);
+      const existing = taskResolutions[taskId] ?? task?.resolution ?? '';
+      setResolutionModal({ taskId, value: existing });
+    },
+    [reservationTasks, taskResolutions],
+  );
 
-  const handleResolutionSave = useCallback(() => {
+  const handleResolutionSave = useCallback(async () => {
     if (!resolutionModal) return;
     const trimmed = resolutionModal.value.trim();
-    setTaskResolutions((prev) => ({ ...prev, [resolutionModal.taskId]: trimmed }));
-    setResolutionModal(null);
-  }, [resolutionModal]);
+    try {
+      const updated = await updateReservationTask(
+        resolutionModal.taskId,
+        { resolution: trimmed },
+        auth.user?.access_token,
+      );
+      syncTaskState(updated);
+      setResolutionModal(null);
+    } catch (error) {
+      console.error('Failed to save task resolution', error);
+    }
+  }, [auth.user?.access_token, resolutionModal, syncTaskState]);
 
   const handleResolutionCancel = useCallback(() => {
     setResolutionModal(null);
   }, []);
 
-  const clearAssignment = useCallback((taskId: string) => {
-    setTaskAssignments((prev) => {
-      const next = { ...prev };
-      delete next[taskId];
-      return next;
-    });
-  }, []);
+  const clearAssignment = useCallback(
+    async (taskId: string) => {
+      try {
+        const updated = await updateReservationTask(taskId, { staffId: null }, auth.user?.access_token);
+        syncTaskState(updated);
+      } catch (error) {
+        console.error('Failed to clear task assignment', error);
+      }
+    },
+    [auth.user?.access_token, syncTaskState],
+  );
 
   const handleRemoveTask = useCallback(
     (taskId: string) => {
-      setRemovedTasks((prev) => ({ ...prev, [taskId]: true }));
-      clearAssignment(taskId);
-      setTaskStatuses((prev) => {
-        if (!(taskId in prev)) return prev;
-        const { [taskId]: _, ...rest } = prev;
-        return rest;
-      });
-      setTaskResolutions((prev) => {
-        if (!(taskId in prev)) return prev;
-        const { [taskId]: _, ...rest } = prev;
-        return rest;
-      });
+      const task = reservationTasks.find((item) => item.id === taskId);
+      if (task) {
+        setTaskPendingDelete(task);
+      }
     },
-    [clearAssignment],
+    [reservationTasks],
   );
+
+  const handleDeleteCancel = useCallback(() => {
+    setTaskPendingDelete(null);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!taskPendingDelete) return;
+
+    try {
+      await deleteReservationTask(taskPendingDelete.id, auth.user?.access_token);
+
+      setReservationTasks((prev) => prev.filter((task) => task.id !== taskPendingDelete.id));
+
+      setTaskStatuses((prev) => {
+        const { [taskPendingDelete.id]: _, ...rest } = prev;
+        return rest;
+      });
+
+      setTaskAssignments((prev) => {
+        const next = { ...prev };
+        delete next[taskPendingDelete.id];
+        return next;
+      });
+
+      setTaskResolutions((prev) => {
+        const next = { ...prev };
+        delete next[taskPendingDelete.id];
+        return next;
+      });
+
+      delete taskRefs.current[taskPendingDelete.id];
+
+      if (highlightTaskId === taskPendingDelete.id) {
+        setHighlightTaskId(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete task', error);
+    } finally {
+      setTaskPendingDelete(null);
+    }
+  }, [auth.user?.access_token, highlightTaskId, taskPendingDelete]);
 
   if (error) {
     return (
@@ -571,16 +678,15 @@ const StaffPage: React.FC = () => {
                         <p className="text-[11px] text-gray-500">No tasks created yet.</p>
                       ) : (
                         <ul className="space-y-1.5">
-                          {tasks
-                            .filter((task) => !removedTasks[task.id])
-                            .map((task) => {
+                          {tasks.map((task) => {
                             const currentStatus = taskStatuses[task.id] ?? task.status;
                             const statusMeta = TASK_STATUS_META[currentStatus];
-                            const assignedStaffId = taskAssignments[task.id];
+                            const assignedStaffId = taskAssignments[task.id] ?? task.assignedStaffId;
                             const assignedStaff = assignedStaffId ? staffById[assignedStaffId] : undefined;
                             const suggestedStaff = !assignedStaff && task.suggestedStaffId ? staffById[task.suggestedStaffId] : undefined;
                             const isActiveDrop = activeDropTaskId === task.id;
-                            const savedResolution = taskResolutions[task.id] ?? '';
+                            const currentResolution = taskResolutions[task.id] ?? task.resolution ?? '';
+                            const showDescription = task.description && task.description.trim().length > 0 && task.description !== task.name;
 
                             const isHighlighted = highlightTaskId === task.id;
 
@@ -602,20 +708,29 @@ const StaffPage: React.FC = () => {
                                     : statusMeta.cardClass
                                 }`}
                                 onDragOver={handleTaskDragOver}
-                                onDrop={(event) => handleTaskDrop(event, task.id)}
+                                onDrop={(event) => {
+                                  void handleTaskDrop(event, task.id);
+                                }}
                                 onDragEnter={() => handleTaskDragEnter(task.id)}
                                 onDragLeave={(event) => handleTaskDragLeave(task.id, event)}
                               >
                                 <div className="flex items-start justify-between gap-2">
-                                  <div className="flex flex-1 items-start gap-2">
+                                  <div className="flex items-start gap-2 flex-1">
                                     <span
                                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusMeta.pillClass}`}
                                     >
                                       {statusMeta.label}
                                     </span>
-                                    <p className="flex-1 min-w-0 text-[11px] font-semibold leading-tight text-gray-800">
-                                      {task.description}
-                                    </p>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[12px] font-semibold leading-tight text-gray-900">
+                                        {task.name}
+                                      </p>
+                                      {showDescription && (
+                                        <p className="mt-0.5 text-[11px] leading-snug text-gray-600 break-words">
+                                          {task.description}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
                                   <button
                                     type="button"
@@ -628,7 +743,7 @@ const StaffPage: React.FC = () => {
                                 </div>
 
                                 <div className="mt-2 text-[10px] italic text-gray-500 truncate">
-                                  {savedResolution ? `Resolution: ${savedResolution}` : 'Resolution not documented yet.'}
+                                  {currentResolution ? `Resolution: ${currentResolution}` : 'Resolution not documented yet.'}
                                 </div>
 
                                 <div className="mt-2 flex items-end justify-between gap-2">
@@ -640,7 +755,9 @@ const StaffPage: React.FC = () => {
                                         </span>
                                         <button
                                           type="button"
-                                          onClick={() => clearAssignment(task.id)}
+                                          onClick={() => {
+                                            void clearAssignment(task.id);
+                                          }}
                                           aria-label="Clear assignee"
                                           className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-gray-500 hover:border-red-400 hover:text-red-600"
                                         >
@@ -667,10 +784,13 @@ const StaffPage: React.FC = () => {
                                           key={`${task.id}-${statusOption}`}
                                           type="button"
                                           onClick={() => {
-                                            if (statusOption === 'done' && currentStatus !== 'done') {
+                                            if (statusOption === currentStatus) {
+                                              return;
+                                            }
+                                            if (statusOption === 'done') {
                                               handleOpenResolutionModal(task.id);
                                             }
-                                            handleTaskStatusChange(task.id, statusOption);
+                                            void handleTaskStatusChange(task.id, statusOption);
                                           }}
                                           className={`${baseClasses} ${stateClasses}`}
                                         >
@@ -767,6 +887,34 @@ const StaffPage: React.FC = () => {
                 className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500"
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {taskPendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-sm font-semibold text-gray-900">Delete Task</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              Are you sure you want to delete “{taskPendingDelete.name}”? This action cannot be undone.
+            </p>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleDeleteCancel}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+              >
+                Delete
               </button>
             </div>
           </div>

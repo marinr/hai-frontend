@@ -6,7 +6,7 @@ import {
   deleteReservation,
   listReservations,
 } from '../repositories/reservationRepository';
-import { jsonResponse, errorResponse } from '../utils/response';
+import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
 import { isValidDdmmyyyy } from '../utils/dateUtils';
 
 export async function handleReservations(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
@@ -70,7 +70,7 @@ export async function handleReservations(event: APIGatewayProxyEventV2): Promise
           return errorResponse(400, 'Reservation ID is required');
         }
         await deleteReservation(id);
-        return jsonResponse(204, null);
+        return noContentResponse(204);
 
       default:
         return errorResponse(405, 'Method not allowed');

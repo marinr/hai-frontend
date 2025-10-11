@@ -43,9 +43,13 @@ export async function apiFetch<T>(
   if (!response.ok) {
     let message = response.statusText || 'Request failed';
     try {
-      const data = (await response.json()) as ApiErrorData;
-      if (data?.message) {
-        message = data.message;
+      const data = (await response.json()) as ApiErrorData & { error?: string };
+      if (data) {
+        if (data.error) {
+          message = data.error;
+        } else if (data.message) {
+          message = data.message;
+        }
       }
     } catch (error) {
       // ignore JSON parse errors for non-JSON responses

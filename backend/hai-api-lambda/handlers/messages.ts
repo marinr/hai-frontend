@@ -8,7 +8,7 @@ import {
   getMessagesByReservationId,
   getMessagesByDate,
 } from '../repositories/messageRepository';
-import { jsonResponse, errorResponse } from '../utils/response';
+import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
 import { isValidDdmmyyyy } from '../utils/dateUtils';
 
 export async function handleMessages(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
@@ -79,7 +79,7 @@ export async function handleMessages(event: APIGatewayProxyEventV2): Promise<API
           return errorResponse(400, 'Message ID is required');
         }
         await deleteMessage(id);
-        return jsonResponse(204, null);
+        return noContentResponse(204);
 
       default:
         return errorResponse(405, 'Method not allowed');

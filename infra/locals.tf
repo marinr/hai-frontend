@@ -41,6 +41,6 @@ locals {
     userPoolId       = aws_cognito_user_pool.main.id
     userPoolClientId = aws_cognito_user_pool_client.main.id
     identityPoolId   = aws_cognito_identity_pool.main.id
-    apiEndpoint      = "https://${aws_cloudfront_distribution.site.domain_name}/api"
+    apiEndpoint      = aws_apigatewayv2_api.hai_api.api_endpoint
   })
 }

@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Reservation, CreateReservationRequest } from '../types';
 import { getItem, putItem, updateItem, deleteItem, queryItems } from '../utils/dynamodb';
-import { ddmmyyyyToYyyymmdd, yyyymmddToDdmmyyyy } from '../utils/dateUtils';
+import { ddmmyyyyToYyyymmdd } from '../utils/dateUtils';
 
 const ENTITY_TYPE = 'RESERVATION';
 
@@ -10,15 +10,12 @@ const ENTITY_TYPE = 'RESERVATION';
  */
 export async function createReservation(data: CreateReservationRequest): Promise<Reservation> {
   const now = new Date().toISOString();
-  
+
   // Convert dates to YYYYMMDD for storage
   const checkinYyyymmdd = ddmmyyyyToYyyymmdd(data.checkin_date);
-  const checkoutYyyymmdd = ddmmyyyyToYyyymmdd(data.checkout_date);
-  
-  // Generate ID in format: room_number-checkin-checkout (e.g., "101-15112025-20112025")
-  // We need to get the room_number from the room_id - for now we'll use a simple approach
-  // In production, you might want to fetch the property to get the room_number
-  const id = `${data.room_id}-${data.checkin_date}-${data.checkout_date}`;
+
+  // Generate a unique identifier for the reservation
+  const id = uuidv4();
 
   const reservation: Reservation = {
     PK: `${ENTITY_TYPE}#${id}`,
@@ -65,6 +62,14 @@ export async function updateReservation(id: string, data: Partial<CreateReservat
       updateExpressions.push(`#gsi1sk = :gsi1sk`);
       expressionAttributeNames['#gsi1sk'] = 'GSI1SK';
       expressionAttributeValues[':gsi1sk'] = ddmmyyyyToYyyymmdd(value as string);
+    } else if (key === 'guest_id') {
+      updateExpressions.push(`#attr${index} = :val${index}`);
+      expressionAttributeNames[`#attr${index}`] = key;
+      expressionAttributeValues[`:val${index}`] = value;
+
+      updateExpressions.push(`#gsi2pk = :gsi2pk`);
+      expressionAttributeNames['#gsi2pk'] = 'GSI2PK';
+      expressionAttributeValues[':gsi2pk'] = `GUEST#${value as string}`;
     } else {
       updateExpressions.push(`#attr${index} = :val${index}`);
       expressionAttributeNames[`#attr${index}`] = key;

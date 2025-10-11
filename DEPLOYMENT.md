@@ -97,7 +97,7 @@ aws cognito-idp update-user-pool-client \
 
 Update `web/.env.local` with the deployed values:
 ```bash
-VITE_API_BASE_URL=https://<cloudfront-domain>
+VITE_API_BASE_URL=https://<api-gateway-domain>
 VITE_COGNITO_USER_POOL_ID=<user-pool-id>
 VITE_COGNITO_CLIENT_ID=<client-id>
 VITE_COGNITO_REDIRECT_URI=https://<cloudfront-domain>

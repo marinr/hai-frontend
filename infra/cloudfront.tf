@@ -26,6 +26,19 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
+  # HAI API Gateway origin
+  origin {
+    domain_name = replace(aws_apigatewayv2_api.hai_api.api_endpoint, "https://", "")
+    origin_id   = "HAI-API"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
   origin {
     domain_name = replace(replace(aws_apigatewayv2_api.api.api_endpoint, "https://", ""), "/", "")
     origin_id   = local.api_origin_id
@@ -50,11 +63,12 @@ resource "aws_cloudfront_distribution" "site" {
     response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03" # Managed-SecurityHeadersPolicy
   }
 
+  # HAI API routes under /api/*
   ordered_cache_behavior {
     path_pattern     = "/api/*"
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods   = ["GET", "HEAD"]
-    target_origin_id = local.api_origin_id
+    target_origin_id = "HAI-API"
 
     viewer_protocol_policy = "redirect-to-https"
     compress               = true

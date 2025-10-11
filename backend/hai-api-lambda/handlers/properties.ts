@@ -7,7 +7,7 @@ import {
   listProperties,
   searchPropertiesByDateRange,
 } from '../repositories/propertyRepository';
-import { jsonResponse, errorResponse } from '../utils/response';
+import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
 import { isValidDdmmyyyy } from '../utils/dateUtils';
 
 export async function handleProperties(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
@@ -89,7 +89,7 @@ export async function handleProperties(event: APIGatewayProxyEventV2): Promise<A
         }
 
         await deleteProperty(id);
-        return jsonResponse(204, null);
+        return noContentResponse(204);
 
       default:
         return errorResponse(405, 'Method not allowed');

@@ -133,7 +133,13 @@ const GuestCard: React.FC<GuestCardProps> = ({
             <ul className="mt-3 space-y-1">
               {tasks.map((task) => {
                 const statusInfo = statusMeta[task.status];
-                const suggested = task.suggestedStaffId ? staffById[task.suggestedStaffId] : undefined;
+                const assigned = task.assignedStaffId ? staffById[task.assignedStaffId] : undefined;
+                const suggested = !assigned && task.suggestedStaffId ? staffById[task.suggestedStaffId] : undefined;
+                const assigneeLabel = assigned
+                  ? assigned.name
+                  : suggested
+                  ? `Suggested: ${suggested.name}`
+                  : 'Not assigned';
 
                 return (
                   <li key={task.id}>
@@ -147,7 +153,7 @@ const GuestCard: React.FC<GuestCardProps> = ({
                         <span className="flex-1 min-w-0 text-gray-900 leading-tight font-medium">{task.description}</span>
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-gray-500">
-                        <span className="truncate">{suggested?.name ?? 'Unassigned'}</span>
+                        <span className="truncate">{assigneeLabel}</span>
                         <Link
                           to={taskLink(task.id)}
                           className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
@@ -168,4 +174,3 @@ const GuestCard: React.FC<GuestCardProps> = ({
 };
 
 export default GuestCard;
-

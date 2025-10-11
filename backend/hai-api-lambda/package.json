@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "prebuild": "npm run clean"
+    "prebuild": "npm run clean",
+    "load:sample": "node load-sample-dynamodb.js"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.662.0",

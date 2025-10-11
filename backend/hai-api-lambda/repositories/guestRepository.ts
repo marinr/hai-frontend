@@ -92,15 +92,3 @@ export async function listGuests(): Promise<Guest[]> {
 /**
  * Get guests by reservation ID
  */
-export async function getGuestsByReservationId(reservationId: string): Promise<Guest[]> {
-  const items = await queryItems({
-    IndexName: 'GSI2',
-    KeyConditionExpression: 'GSI2PK = :pk AND begins_with(GSI2SK, :sk)',
-    ExpressionAttributeValues: {
-      ':pk': `RESERVATION#${reservationId}`,
-      ':sk': ENTITY_TYPE,
-    },
-  });
-
-  return items as Guest[];
-}

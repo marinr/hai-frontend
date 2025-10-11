@@ -46,9 +46,27 @@ export async function updateTask(id: string, data: Partial<CreateTaskRequest>): 
 
   let index = 0;
   for (const [key, value] of Object.entries(data)) {
-    updateExpressions.push(`#attr${index} = :val${index}`);
-    expressionAttributeNames[`#attr${index}`] = key;
-    expressionAttributeValues[`:val${index}`] = value;
+    if (key === 'reservation_info_id') {
+      if (typeof value !== 'string' || value.trim().length === 0) {
+        throw new Error('reservation_info_id must be a non-empty string');
+      }
+
+      updateExpressions.push(`#attr${index} = :val${index}`);
+      expressionAttributeNames[`#attr${index}`] = key;
+      expressionAttributeValues[`:val${index}`] = value;
+
+      updateExpressions.push(`#gsi2pk = :gsi2pk`);
+      expressionAttributeNames['#gsi2pk'] = 'GSI2PK';
+      expressionAttributeValues[':gsi2pk'] = `RESERVATION#${value}`;
+
+      updateExpressions.push(`#gsi2sk = :gsi2sk`);
+      expressionAttributeNames['#gsi2sk'] = 'GSI2SK';
+      expressionAttributeValues[':gsi2sk'] = `${ENTITY_TYPE}#${id}`;
+    } else {
+      updateExpressions.push(`#attr${index} = :val${index}`);
+      expressionAttributeNames[`#attr${index}`] = key;
+      expressionAttributeValues[`:val${index}`] = value;
+    }
     index++;
   }
 

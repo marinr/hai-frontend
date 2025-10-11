@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from 'react-oidc-context';
 
 import Panel from '@/components/Panel';
@@ -12,6 +12,11 @@ const ReservationsPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const today = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }, []);
+  const [selectedDate, setSelectedDate] = useState(today);
 
   useEffect(() => {
     let active = true;
@@ -78,14 +83,16 @@ const ReservationsPage: React.FC = () => {
     <div className="flex-1 flex flex-col gap-4">
       <Panel padding={false} className="flex-1 overflow-hidden flex flex-col">
         <MultiPropertyCalendar
-        listings={listings}
-        bookings={bookings}
-        onBookingClick={handleBookingClick}
-        startYear={2020}
-        startMonth={8}
-        monthsToShow={12}
-        showAgentPanel={false}
-      />
+          listings={listings}
+          bookings={bookings}
+          onBookingClick={handleBookingClick}
+          startYear={today.getFullYear()}
+          startMonth={today.getMonth()}
+          monthsToShow={12}
+          selectedDate={selectedDate}
+          onDaySelect={(day) => setSelectedDate(day.date)}
+          showAgentPanel={false}
+        />
       </Panel>
     </div>
   );

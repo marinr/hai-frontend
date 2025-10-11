@@ -58,7 +58,7 @@ The infrastructure now includes a complete AWS Cognito authentication setup inte
     "userPoolId": "us-east-1_XXXXXXX",
     "userPoolClientId": "xxxxxxxxxxxxxxxxxxxx",
     "identityPoolId": "us-east-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "apiEndpoint": "https://xxxxx.cloudfront.net/api"
+    "apiEndpoint": "https://xxxxx.execute-api.us-east-1.amazonaws.com"
   }
   ```
 

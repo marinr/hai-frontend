@@ -60,6 +60,22 @@ export async function updateMessage(id: string, data: Partial<CreateMessageReque
       updateExpressions.push(`#gsi1sk = :gsi1sk`);
       expressionAttributeNames['#gsi1sk'] = 'GSI1SK';
       expressionAttributeValues[':gsi1sk'] = ddmmyyyyToYyyymmdd(value as string);
+    } else if (key === 'reservation_id') {
+      if (typeof value !== 'string' || value.trim().length === 0) {
+        throw new Error('reservation_id must be a non-empty string');
+      }
+
+      updateExpressions.push(`#attr${index} = :val${index}`);
+      expressionAttributeNames[`#attr${index}`] = key;
+      expressionAttributeValues[`:val${index}`] = value;
+
+      updateExpressions.push(`#gsi2pk = :gsi2pk`);
+      expressionAttributeNames['#gsi2pk'] = 'GSI2PK';
+      expressionAttributeValues[':gsi2pk'] = `RESERVATION#${value}`;
+
+      updateExpressions.push(`#gsi2sk = :gsi2sk`);
+      expressionAttributeNames['#gsi2sk'] = 'GSI2SK';
+      expressionAttributeValues[':gsi2sk'] = `${ENTITY_TYPE}#${id}`;
     } else {
       updateExpressions.push(`#attr${index} = :val${index}`);
       expressionAttributeNames[`#attr${index}`] = key;

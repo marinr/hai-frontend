@@ -5,9 +5,8 @@ import {
   updateGuest,
   deleteGuest,
   listGuests,
-  getGuestsByReservationId,
 } from '../repositories/guestRepository';
-import { jsonResponse, errorResponse } from '../utils/response';
+import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
 
 export async function handleGuests(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const method = event.requestContext.http.method;
@@ -27,12 +26,11 @@ export async function handleGuests(event: APIGatewayProxyEventV2): Promise<APIGa
         } else {
           const reservationId = queryParams.reservationId;
           if (reservationId) {
-            const guests = await getGuestsByReservationId(reservationId);
-            return jsonResponse(200, guests);
-          } else {
-            const guests = await listGuests();
-            return jsonResponse(200, guests);
+            return errorResponse(400, 'Filtering guests by reservation is not supported');
           }
+
+          const guests = await listGuests();
+          return jsonResponse(200, guests);
         }
 
       case 'POST':
@@ -59,7 +57,7 @@ export async function handleGuests(event: APIGatewayProxyEventV2): Promise<APIGa
           return errorResponse(400, 'Guest ID is required');
         }
         await deleteGuest(id);
-        return jsonResponse(204, null);
+        return noContentResponse(204);
 
       default:
         return errorResponse(405, 'Method not allowed');

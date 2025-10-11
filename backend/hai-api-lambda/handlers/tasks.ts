@@ -7,7 +7,7 @@ import {
   listTasks,
   getTasksByReservationId,
 } from '../repositories/taskRepository';
-import { jsonResponse, errorResponse } from '../utils/response';
+import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
 
 export async function handleTasks(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const method = event.requestContext.http.method;
@@ -59,7 +59,7 @@ export async function handleTasks(event: APIGatewayProxyEventV2): Promise<APIGat
           return errorResponse(400, 'Task ID is required');
         }
         await deleteTask(id);
-        return jsonResponse(204, null);
+        return noContentResponse(204);
 
       default:
         return errorResponse(405, 'Method not allowed');

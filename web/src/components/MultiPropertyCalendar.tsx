@@ -242,6 +242,7 @@ const ListingsGrid = React.memo(function ListingsGrid({
   onBookingClick,
   getSourceColor,
   onScroll,
+  containerRef,
 }: {
   listings: Listing[];
   bookingLayouts: Map<string, BookingLayoutItem[]>;
@@ -255,17 +256,18 @@ const ListingsGrid = React.memo(function ListingsGrid({
   onBookingClick?: (bookingId: string) => void;
   getSourceColor: (source: string) => string;
   onScroll: (event: React.UIEvent<HTMLDivElement>) => void;
+  containerRef?: React.RefObject<HTMLDivElement>;
 }) {
   if (listings.length === 0) {
     return (
-      <div className="flex-1 overflow-auto" onScroll={onScroll}>
+      <div className="flex-1 overflow-auto" onScroll={onScroll} ref={containerRef}>
         <div className="p-8 text-center text-gray-500">No properties match your search</div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-auto" onScroll={onScroll}>
+    <div className="flex-1 overflow-auto" onScroll={onScroll} ref={containerRef}>
       <div style={{ width: `${totalDays * cellWidth}px` }}>
         {listings.map((listing) => {
           const listingBookings = bookingLayouts.get(listing.id) || [];
@@ -337,6 +339,7 @@ export const MultiPropertyCalendar: React.FC<MultiPropertyCalendarProps> = ({
 }) => {
   const headerRef = useRef<HTMLDivElement>(null);
   const propertiesSidebarRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isPropertiesOpen, setIsPropertiesOpen] = useState(showPropertiesPanel);
@@ -379,6 +382,35 @@ export const MultiPropertyCalendar: React.FC<MultiPropertyCalendarProps> = ({
     visibleMonthName,
     setVisibleMonthName,
   });
+
+  useEffect(() => {
+    if (!timelineRef.current || days.length === 0) {
+      return;
+    }
+
+    const target = selectedDate ?? new Date();
+    const key = `${target.getFullYear()}-${target.getMonth()}-${target.getDate()}`;
+    const index = dateIndexMap.get(key);
+
+    if (index === undefined) {
+      return;
+    }
+
+    const container = timelineRef.current;
+    const desiredScrollLeft = index * cellWidth - container.clientWidth / 2;
+    const nextScrollLeft = Math.max(0, desiredScrollLeft);
+
+    container.scrollLeft = nextScrollLeft;
+
+    if (headerRef.current) {
+      headerRef.current.scrollLeft = nextScrollLeft;
+    }
+
+    const matchingDay = days.find((day) => day.date.toDateString() === target.toDateString());
+    if (matchingDay) {
+      setVisibleMonthName(matchingDay.monthName);
+    }
+  }, [cellWidth, dateIndexMap, days, selectedDate, setVisibleMonthName]);
 
   const getSourceColor = useCallback((source: string) => CHANNEL_COLOR_HEX(source), []);
 
@@ -495,6 +527,7 @@ export const MultiPropertyCalendar: React.FC<MultiPropertyCalendarProps> = ({
             onBookingClick={onBookingClick}
             getSourceColor={getSourceColor}
             onScroll={handleScroll}
+            containerRef={timelineRef}
           />
         </div>
       </div>
