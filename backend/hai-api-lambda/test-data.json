@@ -1,0 +1,296 @@
+{
+  "description": "Test data for HAI API - Execute POST requests in this order to maintain relationships",
+  "properties": [
+    {
+      "room_number": "101",
+      "room_name": "Ocean View Suite",
+      "sea_view": true,
+      "num_of_single_beds": 0,
+      "num_of_double_beds": 1,
+      "num_of_splitable_double_beds": 0,
+      "floor": 1,
+      "room_count": 1
+    },
+    {
+      "room_number": "102",
+      "room_name": "Garden View Room",
+      "sea_view": false,
+      "num_of_single_beds": 2,
+      "num_of_double_beds": 0,
+      "num_of_splitable_double_beds": 0,
+      "floor": 1,
+      "room_count": 1
+    },
+    {
+      "room_number": "201",
+      "room_name": "Deluxe Ocean Suite",
+      "sea_view": true,
+      "num_of_single_beds": 0,
+      "num_of_double_beds": 1,
+      "num_of_splitable_double_beds": 1,
+      "floor": 2,
+      "room_count": 1
+    },
+    {
+      "room_number": "202",
+      "room_name": "Family Room",
+      "sea_view": true,
+      "num_of_single_beds": 2,
+      "num_of_double_beds": 1,
+      "num_of_splitable_double_beds": 0,
+      "floor": 2,
+      "room_count": 1
+    }
+  ],
+  "staff": [
+    {
+      "name": "Maria",
+      "surname": "Garcia",
+      "type": "Housekeeping",
+      "contact_details": "maria.garcia@hotel.com",
+      "efficiency_score": 95,
+      "overall_quality": 92
+    },
+    {
+      "name": "John",
+      "surname": "Smith",
+      "type": "Concierge",
+      "contact_details": "john.smith@hotel.com",
+      "efficiency_score": 88,
+      "overall_quality": 90
+    },
+    {
+      "name": "Anna",
+      "surname": "Kowalski",
+      "type": "Housekeeping",
+      "contact_details": "anna.kowalski@hotel.com",
+      "efficiency_score": 93,
+      "overall_quality": 94
+    },
+    {
+      "name": "David",
+      "surname": "Chen",
+      "type": "Maintenance",
+      "contact_details": "david.chen@hotel.com",
+      "efficiency_score": 91,
+      "overall_quality": 89
+    }
+  ],
+  "guests": [
+    {
+      "name": "Sarah",
+      "surname": "Johnson",
+      "country": "USA",
+      "city": "New York",
+      "region": "New York",
+      "date_birth": "15031985",
+      "language": "English",
+      "nationality": "American"
+    },
+    {
+      "name": "Michael",
+      "surname": "Brown",
+      "country": "UK",
+      "city": "London",
+      "region": "Greater London",
+      "date_birth": "22071990",
+      "language": "English",
+      "nationality": "British"
+    },
+    {
+      "name": "Emma",
+      "surname": "Wilson",
+      "country": "Australia",
+      "city": "Sydney",
+      "region": "New South Wales",
+      "date_birth": "10121988",
+      "language": "English",
+      "nationality": "Australian"
+    },
+    {
+      "name": "Hans",
+      "surname": "Mueller",
+      "country": "Germany",
+      "city": "Munich",
+      "region": "Bavaria",
+      "date_birth": "05051982",
+      "language": "German",
+      "nationality": "German"
+    },
+    {
+      "name": "Sofia",
+      "surname": "Rodriguez",
+      "country": "Spain",
+      "city": "Barcelona",
+      "region": "Catalonia",
+      "date_birth": "18091992",
+      "language": "Spanish",
+      "nationality": "Spanish"
+    }
+  ],
+  "reservations_instructions": "Replace {property_id} and {guest_id} with actual IDs from created properties and guests",
+  "reservations": [
+    {
+      "room_id": "{property_id_101}",
+      "checkin_date": "15112025",
+      "checkout_date": "20112025",
+      "guest_id": "{guest_id_sarah_johnson}",
+      "number_of_guests": 2,
+      "origin": "Booking.com",
+      "origin_confirmation_id": "BK-2025-001234",
+      "required_crib": false,
+      "required_high_chair": false,
+      "required_parking": true,
+      "departure_ET": "14:30",
+      "arrival_ET": "16:00",
+      "flight_number": "AA123",
+      "diatery_requests": "Vegetarian meals",
+      "special_requests": "Late check-in requested",
+      "required_taxi": true
+    },
+    {
+      "room_id": "{property_id_102}",
+      "checkin_date": "18112025",
+      "checkout_date": "22112025",
+      "guest_id": "{guest_id_michael_brown}",
+      "number_of_guests": 1,
+      "origin": "Airbnb",
+      "origin_confirmation_id": "AIR-2025-567890",
+      "required_crib": false,
+      "required_high_chair": false,
+      "required_parking": false,
+      "departure_ET": "10:00",
+      "arrival_ET": "14:00",
+      "flight_number": "BA456",
+      "diatery_requests": "No restrictions",
+      "special_requests": "Quiet room preferred",
+      "required_taxi": false
+    },
+    {
+      "room_id": "{property_id_201}",
+      "checkin_date": "20112025",
+      "checkout_date": "27112025",
+      "guest_id": "{guest_id_emma_wilson}",
+      "number_of_guests": 2,
+      "origin": "Direct",
+      "origin_confirmation_id": "DIR-2025-789012",
+      "required_crib": false,
+      "required_high_chair": false,
+      "required_parking": true,
+      "departure_ET": "09:00",
+      "arrival_ET": "19:00",
+      "flight_number": "QF789",
+      "diatery_requests": "Gluten-free options",
+      "special_requests": "Honeymoon package",
+      "required_taxi": true
+    },
+    {
+      "room_id": "{property_id_202}",
+      "checkin_date": "22112025",
+      "checkout_date": "29112025",
+      "guest_id": "{guest_id_hans_mueller}",
+      "number_of_guests": 4,
+      "origin": "Expedia",
+      "origin_confirmation_id": "EXP-2025-345678",
+      "required_crib": true,
+      "required_high_chair": true,
+      "required_parking": true,
+      "departure_ET": "11:00",
+      "arrival_ET": "15:30",
+      "flight_number": "LH321",
+      "diatery_requests": "No seafood",
+      "special_requests": "Adjoining room if possible, traveling with children",
+      "required_taxi": false
+    }
+  ],
+  "messages_instructions": "Replace {reservation_id} and {guest_id} with actual IDs",
+  "messages": [
+    {
+      "guest_id": "{guest_id_sarah_johnson}",
+      "reservation_id": "{reservation_id_1}",
+      "communication_channel": "WhatsApp",
+      "message": "Hello! Just wanted to confirm our late check-in at 10 PM. Is that okay?",
+      "date": "14112025"
+    },
+    {
+      "guest_id": "{guest_id_sarah_johnson}",
+      "reservation_id": "{reservation_id_1}",
+      "communication_channel": "WhatsApp",
+      "message": "Also, could you arrange a taxi from the airport?",
+      "date": "14112025"
+    },
+    {
+      "guest_id": "{guest_id_michael_brown}",
+      "reservation_id": "{reservation_id_2}",
+      "communication_channel": "Email",
+      "message": "Looking forward to my stay. Do you have recommendations for local restaurants?",
+      "date": "17112025"
+    },
+    {
+      "guest_id": "{guest_id_emma_wilson}",
+      "reservation_id": "{reservation_id_3}",
+      "communication_channel": "SMS",
+      "message": "We're on our honeymoon! Could you help arrange a romantic dinner?",
+      "date": "19112025"
+    },
+    {
+      "guest_id": "{guest_id_hans_mueller}",
+      "reservation_id": "{reservation_id_4}",
+      "communication_channel": "Phone",
+      "message": "Need to confirm crib and high chair for our 2-year-old",
+      "date": "21112025"
+    }
+  ],
+  "tasks_instructions": "Replace {staff_id} and {reservation_id} with actual IDs",
+  "tasks": [
+    {
+      "staff_id": "{staff_id_maria_garcia}",
+      "reservation_info_id": "{reservation_id_1}",
+      "task_name": "Room Preparation",
+      "task_description": "Prepare Ocean View Suite 101 for VIP guest arrival. Extra towels and amenities.",
+      "task_resolution_description": ""
+    },
+    {
+      "staff_id": "{staff_id_john_smith}",
+      "reservation_info_id": "{reservation_id_1}",
+      "task_name": "Airport Taxi Arrangement",
+      "task_description": "Arrange taxi pickup from airport for guest arriving at 16:00",
+      "task_resolution_description": ""
+    },
+    {
+      "staff_id": "{staff_id_anna_kowalski}",
+      "reservation_info_id": "{reservation_id_2}",
+      "task_name": "Room Assignment",
+      "task_description": "Assign quietest room available in Garden View category",
+      "task_resolution_description": ""
+    },
+    {
+      "staff_id": "{staff_id_john_smith}",
+      "reservation_info_id": "{reservation_id_3}",
+      "task_name": "Honeymoon Package Setup",
+      "task_description": "Set up honeymoon package: champagne, flowers, chocolates in room 201",
+      "task_resolution_description": ""
+    },
+    {
+      "staff_id": "{staff_id_maria_garcia}",
+      "reservation_info_id": "{reservation_id_3}",
+      "task_name": "Special Amenities",
+      "task_description": "Ensure room has romantic setup with rose petals and candles",
+      "task_resolution_description": ""
+    },
+    {
+      "staff_id": "{staff_id_david_chen}",
+      "reservation_info_id": "{reservation_id_4}",
+      "task_name": "Crib and High Chair Setup",
+      "task_description": "Install crib and high chair in Family Room 202 before guest arrival",
+      "task_resolution_description": ""
+    },
+    {
+      "staff_id": "{staff_id_anna_kowalski}",
+      "reservation_info_id": "{reservation_id_4}",
+      "task_name": "Child-Proofing",
+      "task_description": "Child-proof room 202 - outlet covers, corner protectors",
+      "task_resolution_description": ""
+    }
+  ]
+}
