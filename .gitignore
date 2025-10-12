@@ -8,21 +8,29 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Dependencies
-node_modules
-dist
-dist-ssr
+node_modules/
+**/node_modules/
+dist/
+dist-ssr/
 *.local
+.pnp*
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Build outputs
+build/
+out/
+backend/lambda/dist/
+backend/lambda/node_modules/
+backend/hai-api-lambda/dist/
+backend/hai-api-lambda/node_modules/
+infra/build/
+.turbo/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+*.lcov
 
 # Environment variables
 .env
@@ -31,24 +39,35 @@ dist-ssr
 .env.test.local
 .env.production.local
 
-# Build outputs
-build
-out
-backend/lambda/dist
-backend/lambda/node_modules
-infra/build
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Testing
-coverage
-*.lcov
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
 
-# Misc
-.cache
-.parcel-cache
-.next
-.nuxt
-.vercel
-.turbo
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Web tooling caches
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vercel/
 
 # OS
 Thumbs.db
