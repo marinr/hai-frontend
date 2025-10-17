@@ -7,6 +7,7 @@ import {
   fetchReservationTasks,
   fetchStaffDashboardData,
   fetchStaffMembers,
+  createTask,
   updateTask as updateReservationTask,
   deleteTask as deleteReservationTask,
   type ReservationTask,
@@ -101,6 +102,22 @@ const StaffPage: React.FC = () => {
   const [activeDropTaskId, setActiveDropTaskId] = useState<string | null>(null);
   const [draggedStaffId, setDraggedStaffId] = useState<string | null>(null);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
+  const [newTaskModal, setNewTaskModal] = useState<
+    | {
+        reservationId: string;
+        guestName: string;
+        property: string;
+        reservationType: ReservationWithTasks['type'];
+        checkIn?: string;
+        checkOut?: string;
+        name: string;
+        description: string;
+        error: string | null;
+        saving: boolean;
+      }
+    | null
+  >(null);
+  const [usingSampleData, setUsingSampleData] = useState(false);
   const taskRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   useEffect(() => {
@@ -156,6 +173,8 @@ const StaffPage: React.FC = () => {
         const tasks = tasksResponse.length > 0 ? tasksResponse : SAMPLE_RESERVATION_TASKS;
         const assignments = assignmentsResponse.length > 0 ? assignmentsResponse : SAMPLE_STAFF_SCHEDULE;
 
+        setUsingSampleData(tasksResponse.length === 0);
+
         setStaffMembers(members);
         setReservationTasks(tasks);
         setStaffSchedule(assignments);
@@ -209,6 +228,7 @@ const StaffPage: React.FC = () => {
         setStaffMembers(SAMPLE_STAFF_MEMBERS);
         setReservationTasks(SAMPLE_RESERVATION_TASKS);
         setStaffSchedule(SAMPLE_STAFF_SCHEDULE);
+        setUsingSampleData(true);
         setTaskStatuses(() => {
           const next: Record<string, TaskStatus> = {};
           SAMPLE_RESERVATION_TASKS.forEach((task) => {
@@ -274,6 +294,24 @@ const StaffPage: React.FC = () => {
 
   const tasksById = useMemo(() => indexTasksById(reservationTasks), [reservationTasks]);
 
+  const resolveTasksForDetail = useCallback(
+    (detail: GuestDetail): ReservationTask[] => {
+      const normalizedReservationId = normalizeReservationId(detail.reservationId);
+      const primaryTasks = tasksByReservation.get(normalizedReservationId) ?? [];
+
+      if (primaryTasks.length > 0) {
+        return primaryTasks;
+      }
+
+      const fallbackTasks = (detail.taskIds ?? [])
+        .map((taskId) => tasksById.get(taskId))
+        .filter((task): task is ReservationTask => Boolean(task));
+
+      return fallbackTasks;
+    },
+    [tasksByReservation, tasksById],
+  );
+
   const selectedDateKey = useMemo(() => createDateKey(selectedDate), [selectedDate]);
 
   const reservationsForDay: ReservationWithTasks[] = useMemo(() => {
@@ -284,16 +322,10 @@ const StaffPage: React.FC = () => {
 
     const build = (details: GuestDetail[], type: ReservationWithTasks['type']) =>
       details.map((detail) => {
-        const directTasks = tasksByReservation.get(normalizeReservationId(detail.reservationId)) ?? [];
-        const fallbackTasks = (detail.taskIds ?? [])
-          .map((taskId) => tasksById.get(taskId))
-          .filter((task): task is ReservationTask => Boolean(task));
-        const combinedTasks = directTasks.length > 0 ? directTasks : fallbackTasks;
-
         return {
           type,
           detail,
-          tasks: combinedTasks,
+          tasks: resolveTasksForDetail(detail),
         };
       });
 
@@ -302,7 +334,128 @@ const StaffPage: React.FC = () => {
       ...build(day.stays, 'stay'),
       ...build(day.departures, 'departure'),
     ];
-  }, [staffSchedule, selectedDateKey, tasksByReservation, tasksById]);
+  }, [staffSchedule, selectedDateKey, resolveTasksForDetail]);
+
+  const syncTaskState = useCallback((updatedTask: ReservationTask) => {
+    setReservationTasks((prev) => {
+      const exists = prev.some((task) => task.id === updatedTask.id);
+      if (exists) {
+        return prev.map((task) => (task.id === updatedTask.id ? updatedTask : task));
+      }
+      return [...prev, updatedTask];
+    });
+
+    setTaskStatuses((prev) => ({ ...prev, [updatedTask.id]: updatedTask.status }));
+
+    setTaskResolutions((prev) => {
+      const next = { ...prev };
+      if (updatedTask.resolution) {
+        next[updatedTask.id] = updatedTask.resolution;
+      } else {
+        delete next[updatedTask.id];
+      }
+      return next;
+    });
+
+    setTaskAssignments((prev) => {
+      const next = { ...prev };
+      if (updatedTask.assignedStaffId) {
+        next[updatedTask.id] = updatedTask.assignedStaffId;
+      } else {
+        delete next[updatedTask.id];
+      }
+      return next;
+    });
+  }, []);
+
+  const handleOpenNewTaskModal = useCallback((reservation: ReservationWithTasks) => {
+    const { detail, type } = reservation;
+
+    setNewTaskModal({
+      reservationId: detail.reservationId,
+      guestName: detail.guestName,
+      property: detail.property ?? 'Unknown property',
+      reservationType: type,
+      checkIn: detail.checkIn,
+      checkOut: detail.checkOut,
+      name: '',
+      description: '',
+      error: null,
+      saving: false,
+    });
+  }, []);
+
+  const handleCloseNewTaskModal = useCallback(() => {
+    setNewTaskModal(null);
+  }, []);
+
+  const handleNewTaskFieldChange = useCallback((field: 'name' | 'description', value: string) => {
+    setNewTaskModal((prev) =>
+      prev
+        ? {
+            ...prev,
+            [field]: value,
+            error: field === 'name' ? null : prev.error,
+          }
+        : prev,
+    );
+  }, []);
+
+  const handleCreateTaskSave = useCallback(async () => {
+    if (!newTaskModal) {
+      return;
+    }
+
+    const trimmedName = newTaskModal.name.trim();
+    const trimmedDescription = newTaskModal.description.trim();
+
+    if (trimmedName.length === 0) {
+      setNewTaskModal({ ...newTaskModal, error: 'Task name is required.' });
+      return;
+    }
+
+    setNewTaskModal({ ...newTaskModal, saving: true, error: null });
+
+    try {
+      const created = await createTask(
+        {
+          reservationId: newTaskModal.reservationId,
+          name: trimmedName,
+          description: trimmedDescription,
+        },
+        auth.user?.access_token,
+      );
+
+      syncTaskState(created);
+      setNewTaskModal(null);
+    } catch (error) {
+      console.error('Failed to create task', error);
+
+      if (usingSampleData) {
+        const fallbackTask: ReservationTask = {
+          id: `local-${Date.now()}`,
+          reservationId: newTaskModal.reservationId,
+          name: trimmedName,
+          description: trimmedDescription,
+          status: 'opened',
+          resolution: '',
+        };
+        syncTaskState(fallbackTask);
+        setNewTaskModal(null);
+        return;
+      }
+
+      setNewTaskModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              saving: false,
+              error: 'Unable to create task right now. Please try again.',
+            }
+          : prev,
+      );
+    }
+  }, [auth.user?.access_token, newTaskModal, syncTaskState, usingSampleData]);
 
   useEffect(() => {
     if (!highlightTaskId) {
@@ -347,38 +500,6 @@ const StaffPage: React.FC = () => {
 
   const handleStaffDragEnd = useCallback(() => {
     setDraggedStaffId(null);
-  }, []);
-
-  const syncTaskState = useCallback((updatedTask: ReservationTask) => {
-    setReservationTasks((prev) => {
-      const exists = prev.some((task) => task.id === updatedTask.id);
-      if (exists) {
-        return prev.map((task) => (task.id === updatedTask.id ? updatedTask : task));
-      }
-      return [...prev, updatedTask];
-    });
-
-    setTaskStatuses((prev) => ({ ...prev, [updatedTask.id]: updatedTask.status }));
-
-    setTaskResolutions((prev) => {
-      const next = { ...prev };
-      if (updatedTask.resolution) {
-        next[updatedTask.id] = updatedTask.resolution;
-      } else {
-        delete next[updatedTask.id];
-      }
-      return next;
-    });
-
-    setTaskAssignments((prev) => {
-      const next = { ...prev };
-      if (updatedTask.assignedStaffId) {
-        next[updatedTask.id] = updatedTask.assignedStaffId;
-      } else {
-        delete next[updatedTask.id];
-      }
-      return next;
-    });
   }, []);
 
   const handleTaskDrop = useCallback(
@@ -565,9 +686,19 @@ const StaffPage: React.FC = () => {
             const label = formatDateLabel(day, initialDate);
             const dateKey = createDateKey(day);
             const dataForDay = staffSchedule.find((entry) => entry.date === dateKey);
-            const arrivalCount = dataForDay?.arrivals.length ?? 0;
-            const stayCount = dataForDay?.stays.length ?? 0;
-            const departureCount = dataForDay?.departures.length ?? 0;
+            const statusCounts: Record<TaskStatus, number> = {
+              opened: 0,
+              'in-progress': 0,
+              done: 0,
+            };
+
+            if (dataForDay) {
+              [...dataForDay.arrivals, ...dataForDay.stays, ...dataForDay.departures].forEach((detail) => {
+                resolveTasksForDetail(detail).forEach((task) => {
+                  statusCounts[task.status] += 1;
+                });
+              });
+            }
             const isActive = selectedDate.toDateString() === day.toDateString();
 
             return (
@@ -587,30 +718,22 @@ const StaffPage: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 text-xs font-semibold">
-                    <span
-                      title="Arrivals"
-                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        arrivalCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'
-                      }`}
-                    >
-                      {arrivalCount}
-                    </span>
-                    <span
-                      title="In-house"
-                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        stayCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'
-                      }`}
-                    >
-                      {stayCount}
-                    </span>
-                    <span
-                      title="Departures"
-                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        departureCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400'
-                      }`}
-                    >
-                      {departureCount}
-                    </span>
+                    {(['opened', 'in-progress', 'done'] as TaskStatus[]).map((status) => {
+                      const meta = TASK_STATUS_META[status];
+                      const count = statusCounts[status];
+                      const hasTasks = count > 0;
+                      const colorClasses = hasTasks ? meta.pillClass : 'bg-gray-100 text-gray-400';
+
+                      return (
+                        <span
+                          key={status}
+                          title={`${meta.label} tasks`}
+                          className={`flex h-8 w-8 items-center justify-center rounded-full ${colorClasses}`}
+                        >
+                          {count}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               </button>
@@ -670,6 +793,13 @@ const StaffPage: React.FC = () => {
                         <span className="text-gray-700 font-semibold">
                           {formatDateTime(detail.checkIn)} → {formatDateTime(detail.checkOut)}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenNewTaskModal(reservation)}
+                          className="inline-flex items-center gap-1 rounded-md border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                        >
+                          + Add Task
+                        </button>
                       </div>
                     </header>
 
@@ -852,13 +982,89 @@ const StaffPage: React.FC = () => {
               ))}
             </div>
           </Panel>
+      </div>
+    </div>
+
+    {newTaskModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <h3 className="text-sm font-semibold text-gray-900">Add Task</h3>
+          <p className="mt-1 text-xs text-gray-500">
+            {newTaskModal.guestName} · {newTaskModal.property}
+          </p>
+          <p className="text-[11px] text-gray-400">
+            Reservation {newTaskModal.reservationId.toUpperCase()} — {newTaskModal.reservationType.toUpperCase()}
+          </p>
+          {(newTaskModal.checkIn || newTaskModal.checkOut) && (
+            <p className="mt-2 text-[11px] text-gray-500">
+              {formatDateTime(newTaskModal.checkIn ?? '')} → {formatDateTime(newTaskModal.checkOut ?? '')}
+            </p>
+          )}
+
+          <div className="mt-4 space-y-3">
+            <div>
+              <label htmlFor="new-task-name" className="text-xs font-semibold text-gray-700">
+                Task name
+              </label>
+              <input
+                id="new-task-name"
+                type="text"
+                value={newTaskModal.name}
+                onChange={(event) => handleNewTaskFieldChange('name', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+                placeholder="Enter a short task title"
+                disabled={newTaskModal.saving}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="new-task-description" className="text-xs font-semibold text-gray-700">
+                Description (optional)
+              </label>
+              <textarea
+                id="new-task-description"
+                value={newTaskModal.description}
+                onChange={(event) => handleNewTaskFieldChange('description', event.target.value)}
+                rows={4}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+                placeholder="Add more context for the team"
+                disabled={newTaskModal.saving}
+              />
+            </div>
+
+            {newTaskModal.error && (
+              <p className="text-xs font-semibold text-red-600">{newTaskModal.error}</p>
+            )}
+          </div>
+
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleCloseNewTaskModal}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              disabled={newTaskModal.saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void handleCreateTaskSave();
+              }}
+              className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-400"
+              disabled={newTaskModal.saving}
+            >
+              {newTaskModal.saving ? 'Saving…' : 'Save Task'}
+            </button>
+          </div>
         </div>
       </div>
+    )}
 
-      {resolutionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-sm font-semibold text-gray-900">Add Resolution</h3>
+    {resolutionModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <h3 className="text-sm font-semibold text-gray-900">Add Resolution</h3>
             <p className="mt-1 text-xs text-gray-500">Document what was completed for this task.</p>
 
             <textarea

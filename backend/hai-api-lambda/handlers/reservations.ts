@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import {
   createReservation,
   getReservationById,
+  getReservationByPropertyAndDates,
   updateReservation,
   deleteReservation,
   listReservations,
@@ -13,12 +14,28 @@ export async function handleReservations(event: APIGatewayProxyEventV2): Promise
   const method = event.requestContext.http.method;
   const pathParams = event.pathParameters || {};
   const id = pathParams.id;
+  const queryParams = event.queryStringParameters || {};
 
   try {
     switch (method) {
       case 'GET':
         if (id) {
           const reservation = await getReservationById(id);
+          if (!reservation) {
+            return errorResponse(404, 'Reservation not found');
+          }
+          return jsonResponse(200, reservation);
+        } else if (queryParams.property_id && queryParams.check_in && queryParams.check_out) {
+          const { property_id: propertyId, check_in: checkIn, check_out: checkOut } = queryParams;
+
+          if (!isValidDdmmyyyy(checkIn)) {
+            return errorResponse(400, 'Invalid check_in format. Expected DDMMYYYY');
+          }
+          if (!isValidDdmmyyyy(checkOut)) {
+            return errorResponse(400, 'Invalid check_out format. Expected DDMMYYYY');
+          }
+
+          const reservation = await getReservationByPropertyAndDates(propertyId, checkIn, checkOut);
           if (!reservation) {
             return errorResponse(404, 'Reservation not found');
           }
@@ -62,8 +79,15 @@ export async function handleReservations(event: APIGatewayProxyEventV2): Promise
           return errorResponse(400, 'Invalid checkout_date format. Expected DDMMYYYY');
         }
         
-        const updatedReservation = await updateReservation(id, updateData);
-        return jsonResponse(200, updatedReservation);
+        try {
+          const updatedReservation = await updateReservation(id, updateData);
+          return jsonResponse(200, updatedReservation);
+        } catch (error) {
+          if (error instanceof Error && error.message === 'Reservation not found') {
+            return errorResponse(404, error.message);
+          }
+          throw error;
+        }
 
       case 'DELETE':
         if (!id) {

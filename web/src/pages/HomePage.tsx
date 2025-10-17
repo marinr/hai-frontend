@@ -238,16 +238,16 @@ const HomePage: React.FC = () => {
         <div className="max-h-[520px] overflow-auto divide-y divide-gray-100">
           {days.map((day) => {
             const label = formatDateLabel(day, today);
-            const iso = day.toISOString().slice(0, 10);
-            const dataForDay = dashboardData.find((entry) => entry.date === iso);
+            const dateKey = toDateKey(day);
+            const dataForDay = dashboardData.find((entry) => entry.date === dateKey);
             const arrivalCount = dataForDay?.arrivals.length ?? 0;
             const stayCount = dataForDay?.stays.length ?? 0;
             const departureCount = dataForDay?.departures.length ?? 0;
-              const isActive = selectedDate?.toDateString() === day.toDateString();
+            const isActive = selectedDate?.toDateString() === day.toDateString();
 
             return (
               <button
-                key={iso}
+                key={dateKey}
                 type="button"
                 onClick={() => setSelectedDate(day)}
                 className={`w-full px-6 py-4 text-left transition-colors ${

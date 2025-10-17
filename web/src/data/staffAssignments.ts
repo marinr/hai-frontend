@@ -84,6 +84,40 @@ const mapTask = (task: TaskApiItem): ReservationTask => {
   };
 };
 
+export const createTask = async (
+  input: {
+    reservationId: string;
+    name: string;
+    description: string;
+    staffId?: string | null;
+  },
+  token?: string,
+): Promise<ReservationTask> => {
+  const name = input.name.trim();
+  const description = input.description.trim();
+
+  const payload = {
+    staff_id: input.staffId && input.staffId.trim().length > 0 ? input.staffId.trim() : null,
+    reservation_info_id: input.reservationId.trim(),
+    task_name: name.length > 0 ? name : input.name,
+    task_description: description,
+    task_resolution_description: '',
+  };
+
+  const created = await apiFetch<TaskApiItem>(
+    '/tasks',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+
+  return mapTask(created);
+};
+
+
+
 export const updateTask = async (
   taskId: string,
   updates: Partial<{

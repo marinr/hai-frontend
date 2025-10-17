@@ -18,12 +18,24 @@ resource "aws_apigatewayv2_api" "hai_api" {
       "x-amz-security-token",
       "x-amz-user-agent"
     ]
-    expose_headers = ["*"]
+    expose_headers    = ["*"]
     allow_credentials = false
-    max_age       = 300
+    max_age           = 300
   }
 
   tags = local.tags
+}
+
+resource "aws_apigatewayv2_authorizer" "hai_cognito" {
+  api_id           = aws_apigatewayv2_api.hai_api.id
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+  name             = "${local.normalized_prefix}-hai-cognito-authorizer"
+
+  jwt_configuration {
+    audience = [aws_cognito_user_pool_client.main.id]
+    issuer   = "https://${aws_cognito_user_pool.main.endpoint}"
+  }
 }
 
 # Lambda Integration
@@ -38,188 +50,248 @@ resource "aws_apigatewayv2_integration" "hai_lambda" {
 
 # Properties Routes
 resource "aws_apigatewayv2_route" "properties_list" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /properties"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /properties"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "properties_create" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "POST /properties"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "POST /properties"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "properties_get" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /properties/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /properties/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "properties_update" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "PUT /properties/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "PUT /properties/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "properties_delete" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "DELETE /properties/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "DELETE /properties/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 # Reservations Routes
 resource "aws_apigatewayv2_route" "reservations_list" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /reservations"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /reservations"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "reservations_create" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "POST /reservations"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "POST /reservations"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "reservations_get" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /reservations/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /reservations/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "reservations_update" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "PUT /reservations/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "PUT /reservations/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "reservations_delete" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "DELETE /reservations/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "DELETE /reservations/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 # Guests Routes
 resource "aws_apigatewayv2_route" "guests_list" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /guests"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /guests"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "guests_create" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "POST /guests"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "POST /guests"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "guests_get" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /guests/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /guests/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "guests_update" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "PUT /guests/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "PUT /guests/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "guests_delete" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "DELETE /guests/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "DELETE /guests/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 # Messages Routes
 resource "aws_apigatewayv2_route" "messages_list" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /messages"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /messages"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "messages_create" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "POST /messages"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "POST /messages"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "messages_get" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /messages/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /messages/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "messages_update" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "PUT /messages/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "PUT /messages/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "messages_delete" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "DELETE /messages/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "DELETE /messages/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 # Tasks Routes
 resource "aws_apigatewayv2_route" "tasks_list" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /tasks"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /tasks"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "tasks_create" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "POST /tasks"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "POST /tasks"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "tasks_get" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /tasks/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /tasks/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "tasks_update" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "PUT /tasks/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "PUT /tasks/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "tasks_delete" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "DELETE /tasks/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "DELETE /tasks/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 # Staff Routes
 resource "aws_apigatewayv2_route" "staff_list" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /staff"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /staff"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "staff_create" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "POST /staff"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "POST /staff"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "staff_get" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "GET /staff/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "GET /staff/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "staff_update" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "PUT /staff/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "PUT /staff/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "staff_delete" {
-  api_id    = aws_apigatewayv2_api.hai_api.id
-  route_key = "DELETE /staff/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
+  api_id             = aws_apigatewayv2_api.hai_api.id
+  route_key          = "DELETE /staff/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.hai_cognito.id
+  target             = "integrations/${aws_apigatewayv2_integration.hai_lambda.id}"
 }
 
 # OPTIONS route for CORS preflight
