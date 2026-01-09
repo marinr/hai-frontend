@@ -8,6 +8,7 @@ interface ChannelColor {
 const CHANNEL_COLOR_MAP: Record<Channel, ChannelColor> = {
   airbnb: { background: '#FF5A5F', text: '#ffffff' },
   vrbo: { background: '#003B95', text: '#ffffff' },
+  'booking.com': { background: '#4a59f3ff', text: '#ffffff' },
   direct: { background: '#10B981', text: '#0b3d2c' },
 };
 

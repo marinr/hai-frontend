@@ -1,4 +1,4 @@
-export type Channel = 'airbnb' | 'vrbo' | 'direct';
+export type Channel = 'airbnb' | 'vrbo' | 'booking.com' | 'direct';
 
 export interface Listing {
   id: string;

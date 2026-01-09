@@ -36,6 +36,8 @@ export interface StayInfo {
 export type GuestDetail = GuestReservation &
   Partial<ArrivalInfo & DepartureInfo & StayInfo> & {
     taskIds?: string[];
+    cleaningScheduledFor?: string;
+    isCleaningTask?: boolean;
   };
 
 export interface DailyGuestInfo {
@@ -43,6 +45,7 @@ export interface DailyGuestInfo {
   arrivals: GuestDetail[];
   departures: GuestDetail[];
   stays: GuestDetail[];
+  cleanings: GuestDetail[];
 }
 
 interface ReservationApiItem {
@@ -98,13 +101,13 @@ const toDateKey = (value: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-const parseDdmmyyyy = (value: string): Date | null => {
+const parseYyyymmdd = (value: string): Date | null => {
   if (!value || value.length !== 8) {
     return null;
   }
-  const day = Number.parseInt(value.slice(0, 2), 10);
-  const month = Number.parseInt(value.slice(2, 4), 10) - 1;
-  const year = Number.parseInt(value.slice(4), 10);
+  const year = Number.parseInt(value.slice(0, 4), 10);
+  const month = Number.parseInt(value.slice(4, 6), 10) - 1;
+  const day = Number.parseInt(value.slice(6, 8), 10);
 
   if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(year)) {
     return null;
@@ -130,6 +133,14 @@ const splitRequests = (input: string): string[] | undefined => {
   return parts.length > 0 ? parts : undefined;
 };
 
+const normalizeChannel = (origin: string): Channel => {
+  const normalized = origin?.toLowerCase().trim();
+  if (normalized === 'airbnb') return 'airbnb';
+  if (normalized === 'booking.com' || normalized === 'booking') return 'booking.com';
+  if (normalized === 'vrbo') return 'vrbo';
+  return 'direct';
+};
+
 const createGuestDetail = (
   reservation: ReservationApiItem,
   guest: GuestApiItem | undefined,
@@ -144,7 +155,7 @@ const createGuestDetail = (
     guestName,
     reservationId: reservation.id,
     property: propertyName,
-    channel: 'direct',
+    channel: normalizeChannel(reservation.origin),
     checkIn: toLocalDateTime(checkIn, 15, 0),
     checkOut: toLocalDateTime(checkOut, 11, 0),
     parkingReserved: reservation.required_parking,
@@ -180,8 +191,8 @@ export const fetchDashboardData = async (
   const horizonEnd = addDays(baseDate, days).getTime();
 
   const relevantReservations = reservations.filter((reservation) => {
-    const checkIn = parseDdmmyyyy(reservation.checkin_date);
-    const checkOut = parseDdmmyyyy(reservation.checkout_date);
+    const checkIn = parseYyyymmdd(reservation.checkin_date);
+    const checkOut = parseYyyymmdd(reservation.checkout_date);
 
     if (!checkIn || !checkOut) {
       return false;
@@ -198,11 +209,12 @@ export const fetchDashboardData = async (
     arrivals: [],
     departures: [],
     stays: [],
+    cleanings: [],
   }));
 
   relevantReservations.forEach((reservation) => {
-    const checkInDate = parseDdmmyyyy(reservation.checkin_date);
-    const checkOutDate = parseDdmmyyyy(reservation.checkout_date);
+    const checkInDate = parseYyyymmdd(reservation.checkin_date);
+    const checkOutDate = parseYyyymmdd(reservation.checkout_date);
 
     if (!checkInDate || !checkOutDate) {
       return;
@@ -210,24 +222,36 @@ export const fetchDashboardData = async (
 
     const guest = guestById.get(reservation.guest_id);
     const property = propertyById.get(reservation.room_id);
-    const detail = createGuestDetail(reservation, guest, property, checkInDate, checkOutDate);
+    const baseDetail = createGuestDetail(reservation, guest, property, checkInDate, checkOutDate);
 
     daily.forEach((entry, index) => {
       const currentDay = horizonDates[index];
+      const dateKey = entry.date;
 
       if (isSameDay(currentDay, checkInDate)) {
-        entry.arrivals.push(detail);
+        entry.arrivals.push({ ...baseDetail });
       }
 
       if (isSameDay(currentDay, checkOutDate)) {
-        entry.departures.push(detail);
+        const departureDetail: GuestDetail = {
+          ...baseDetail,
+          cleaningScheduledFor: dateKey,
+        };
+        entry.departures.push(departureDetail);
+
+        const cleaningDetail: GuestDetail = {
+          ...baseDetail,
+          cleaningScheduledFor: dateKey,
+          isCleaningTask: true,
+        };
+        entry.cleanings.push(cleaningDetail);
       }
 
       const isDuringStay =
         currentDay.getTime() >= checkInDate.getTime() && currentDay.getTime() < checkOutDate.getTime();
 
       if (isDuringStay && !isSameDay(currentDay, checkInDate)) {
-        entry.stays.push(detail);
+        entry.stays.push({ ...baseDetail });
       }
     });
   });

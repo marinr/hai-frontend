@@ -16,12 +16,6 @@ import {
 } from '@/data/staffAssignments';
 import type { DailyGuestInfo, GuestDetail } from '@/data/homeDashboard';
 import { formatDateLabel } from '@/utils/formatDateLabel';
-import {
-  SAMPLE_RESERVATION_TASKS,
-  SAMPLE_STAFF_MEMBERS,
-  SAMPLE_STAFF_SCHEDULE,
-  SAMPLE_RESERVATION_DATE,
-} from '@/data/sampleStaffData';
 import { groupTasksByReservation, indexTasksById, normalizeReservationId } from '@/utils/reservations';
 import { getChannelColor } from '@/utils/channelColors';
 
@@ -117,7 +111,6 @@ const StaffPage: React.FC = () => {
       }
     | null
   >(null);
-  const [usingSampleData, setUsingSampleData] = useState(false);
   const taskRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   useEffect(() => {
@@ -169,11 +162,9 @@ const StaffPage: React.FC = () => {
           return;
         }
 
-        const members = membersResponse.length > 0 ? membersResponse : SAMPLE_STAFF_MEMBERS;
-        const tasks = tasksResponse.length > 0 ? tasksResponse : SAMPLE_RESERVATION_TASKS;
-        const assignments = assignmentsResponse.length > 0 ? assignmentsResponse : SAMPLE_STAFF_SCHEDULE;
-
-        setUsingSampleData(tasksResponse.length === 0);
+        const members = membersResponse ?? [];
+        const tasks = tasksResponse ?? [];
+        const assignments = assignmentsResponse ?? [];
 
         setStaffMembers(members);
         setReservationTasks(tasks);
@@ -205,65 +196,21 @@ const StaffPage: React.FC = () => {
           });
           return next;
         });
-
-        if (assignments === SAMPLE_STAFF_SCHEDULE) {
-          const sampleDate = new Date(SAMPLE_RESERVATION_DATE);
-          setInitialDate((prev) => {
-            const prevKey = createDateKey(prev);
-            return prevKey === SAMPLE_RESERVATION_DATE ? prev : sampleDate;
-          });
-          setSelectedDate((prev) => {
-            const prevKey = createDateKey(prev);
-            return prevKey === SAMPLE_RESERVATION_DATE ? prev : sampleDate;
-          });
-        }
-
+        setError(null);
         setLoading(false);
       } catch (fetchError) {
         if (!active) {
           return;
         }
 
-        console.error('Failed to fetch staff dashboard data; using sample data.', fetchError);
-        setStaffMembers(SAMPLE_STAFF_MEMBERS);
-        setReservationTasks(SAMPLE_RESERVATION_TASKS);
-        setStaffSchedule(SAMPLE_STAFF_SCHEDULE);
-        setUsingSampleData(true);
-        setTaskStatuses(() => {
-          const next: Record<string, TaskStatus> = {};
-          SAMPLE_RESERVATION_TASKS.forEach((task) => {
-            next[task.id] = task.status;
-          });
-          return next;
-        });
-        setTaskAssignments(() => {
-          const next: Record<string, string | undefined> = {};
-          SAMPLE_RESERVATION_TASKS.forEach((task) => {
-            if (task.assignedStaffId) {
-              next[task.id] = task.assignedStaffId;
-            }
-          });
-          return next;
-        });
-        setTaskResolutions(() => {
-          const next: Record<string, string> = {};
-          SAMPLE_RESERVATION_TASKS.forEach((task) => {
-            if (task.resolution) {
-              next[task.id] = task.resolution;
-            }
-          });
-          return next;
-        });
-        const sampleDate = new Date(SAMPLE_RESERVATION_DATE);
-        setInitialDate((prev) => {
-          const prevKey = createDateKey(prev);
-          return prevKey === SAMPLE_RESERVATION_DATE ? prev : sampleDate;
-        });
-        setSelectedDate((prev) => {
-          const prevKey = createDateKey(prev);
-          return prevKey === SAMPLE_RESERVATION_DATE ? prev : sampleDate;
-        });
-        setError(null);
+        console.error('Failed to fetch staff dashboard data.', fetchError);
+        setStaffMembers([]);
+        setReservationTasks([]);
+        setStaffSchedule([]);
+        setTaskStatuses({});
+        setTaskAssignments({});
+        setTaskResolutions({});
+        setError('Unable to load staff dashboard data. Please try again later.');
         setLoading(false);
       }
     };
@@ -431,20 +378,6 @@ const StaffPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to create task', error);
 
-      if (usingSampleData) {
-        const fallbackTask: ReservationTask = {
-          id: `local-${Date.now()}`,
-          reservationId: newTaskModal.reservationId,
-          name: trimmedName,
-          description: trimmedDescription,
-          status: 'opened',
-          resolution: '',
-        };
-        syncTaskState(fallbackTask);
-        setNewTaskModal(null);
-        return;
-      }
-
       setNewTaskModal((prev) =>
         prev
           ? {
@@ -455,7 +388,7 @@ const StaffPage: React.FC = () => {
           : prev,
       );
     }
-  }, [auth.user?.access_token, newTaskModal, syncTaskState, usingSampleData]);
+  }, [auth.user?.access_token, newTaskModal, syncTaskState]);
 
   useEffect(() => {
     if (!highlightTaskId) {

@@ -10,8 +10,8 @@ interface PropertyApiItem {
 interface ReservationApiItem {
   id: string;
   room_id: string;
-  checkin_date: string; // DDMMYYYY
-  checkout_date: string; // DDMMYYYY
+  checkin_date: string; // YYYYMMDD
+  checkout_date: string; // YYYYMMDD
   guest_id: string;
   origin: string;
 }
@@ -22,14 +22,28 @@ interface GuestApiItem {
   surname: string;
 }
 
-const ddmmyyyyToIso = (value: string): string => {
+const dateToIso = (value: string): string => {
   if (!value || value.length !== 8) {
     return value;
   }
-  const day = value.substring(0, 2);
-  const month = value.substring(2, 4);
-  const year = value.substring(4, 8);
-  return `${year}-${month}-${day}`;
+  
+  // Detect format by checking if first 4 chars look like a year (20XX)
+  const first4 = value.substring(0, 4);
+  const isYearFirst = first4.startsWith('20');
+  
+  if (isYearFirst) {
+    // Format: YYYYMMDD
+    const year = value.substring(0, 4);
+    const month = value.substring(4, 6);
+    const day = value.substring(6, 8);
+    return `${year}-${month}-${day}`;
+  } else {
+    // Format: DDMMYYYY
+    const day = value.substring(0, 2);
+    const month = value.substring(2, 4);
+    const year = value.substring(4, 8);
+    return `${year}-${month}-${day}`;
+  }
 };
 
 const mapOriginToChannel = (origin: string | undefined): Channel => {
@@ -43,6 +57,9 @@ const mapOriginToChannel = (origin: string | undefined): Channel => {
   }
   if (normalized.includes('vrbo')) {
     return 'vrbo';
+  }
+  if (normalized.includes('booking.com')) {
+    return 'booking.com';
   }
 
   return 'direct';
@@ -76,8 +93,8 @@ export const fetchBookings = async (token?: string): Promise<Booking[]> => {
       listingId: reservation.room_id,
       guestName,
       source: mapOriginToChannel(reservation.origin),
-      startDate: ddmmyyyyToIso(reservation.checkin_date),
-      endDate: ddmmyyyyToIso(reservation.checkout_date),
+      startDate: dateToIso(reservation.checkin_date),
+      endDate: dateToIso(reservation.checkout_date),
     };
   });
 };

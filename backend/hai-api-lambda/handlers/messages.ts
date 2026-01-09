@@ -7,9 +7,9 @@ import {
   listMessages,
   getMessagesByReservationId,
   getMessagesByDate,
-} from '../repositories/messageRepository';
-import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
-import { isValidDdmmyyyy } from '../utils/dateUtils';
+} from '/opt/nodejs/repositories/messageRepository';
+import { jsonResponse, errorResponse, noContentResponse } from '/opt/nodejs/utils/response';
+import { isValidDdmmyyyy } from '/opt/nodejs/utils/dateUtils';
 
 export async function handleMessages(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const method = event.requestContext.http.method;

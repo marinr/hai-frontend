@@ -4,7 +4,6 @@ locals {
   web_build_path    = abspath("${path.module}/${var.web_build_path}")
   web_asset_files   = try(fileset(local.web_build_path, "**"), [])
 
-  api_origin_id = "lambda-function-origin"
   web_origin_id = "s3-web-origin"
 
   mime_types = {

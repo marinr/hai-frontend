@@ -22,6 +22,8 @@ backend/lambda/dist/
 backend/lambda/node_modules/
 backend/hai-api-lambda/dist/
 backend/hai-api-lambda/node_modules/
+backend/email-ingestion-lambda/dist/
+backend/email-ingestion-lambda/node_modules/
 infra/build/
 .turbo/
 

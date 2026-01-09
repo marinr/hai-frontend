@@ -40,6 +40,12 @@ variable "lambda_timeout" {
   default     = 10
 }
 
+variable "email_ingestion_bucket_name" {
+  type        = string
+  description = "Name of the S3 bucket that stores raw email files to ingest"
+  default     = "hai-data-lake"
+}
+
 variable "tags" {
   type        = map(string)
   description = "Additional tags to apply to created resources"

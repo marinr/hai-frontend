@@ -6,8 +6,8 @@ import {
   deleteTask,
   listTasks,
   getTasksByReservationId,
-} from '../repositories/taskRepository';
-import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
+} from '/opt/nodejs/repositories/taskRepository';
+import { jsonResponse, errorResponse, noContentResponse } from '/opt/nodejs/utils/response';
 
 export async function handleTasks(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const method = event.requestContext.http.method;

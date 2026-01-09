@@ -10,7 +10,7 @@ output "distribution_domain_name" {
 
 output "api_gateway_url" {
   description = "API Gateway URL"
-  value       = aws_apigatewayv2_api.api.api_endpoint
+  value       = aws_apigatewayv2_api.hai_api.api_endpoint
 }
 
 output "user_pool_id" {

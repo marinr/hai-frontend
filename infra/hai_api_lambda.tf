@@ -14,8 +14,8 @@ resource "aws_cloudwatch_log_group" "hai_api" {
 
 # Logging Policy
 resource "aws_iam_role_policy" "hai_api_logging" {
-  name   = "${local.normalized_prefix}-hai-api-logging"
-  role   = aws_iam_role.hai_api.id
+  name = "${local.normalized_prefix}-hai-api-logging"
+  role = aws_iam_role.hai_api.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -49,7 +49,7 @@ resource "aws_iam_role_policy" "hai_api_dynamodb" {
           "dynamodb:BatchGetItem",
           "dynamodb:BatchWriteItem"
         ]
-        Effect   = "Allow"
+        Effect = "Allow"
         Resource = [
           aws_dynamodb_table.hai_data.arn,
           "${aws_dynamodb_table.hai_data.arn}/index/*"
@@ -95,6 +95,10 @@ resource "aws_lambda_function" "hai_api" {
   memory_size      = var.lambda_memory_size
   timeout          = var.lambda_timeout
 
+  layers = [
+    aws_lambda_layer_version.data_repositories_nodejs.arn
+  ]
+
   environment {
     variables = {
       DYNAMODB_TABLE_NAME = aws_dynamodb_table.hai_data.name
@@ -106,6 +110,7 @@ resource "aws_lambda_function" "hai_api" {
 
   depends_on = [
     aws_iam_role_policy.hai_api_logging,
-    aws_iam_role_policy.hai_api_dynamodb
+    aws_iam_role_policy.hai_api_dynamodb,
+    aws_lambda_layer_version.data_repositories_nodejs
   ]
 }

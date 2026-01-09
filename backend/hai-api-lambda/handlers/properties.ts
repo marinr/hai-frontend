@@ -6,9 +6,9 @@ import {
   deleteProperty,
   listProperties,
   searchPropertiesByDateRange,
-} from '../repositories/propertyRepository';
-import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
-import { isValidDdmmyyyy } from '../utils/dateUtils';
+} from '/opt/nodejs/repositories/propertyRepository';
+import { jsonResponse, errorResponse, noContentResponse } from '/opt/nodejs/utils/response';
+import { isValidDdmmyyyy } from '/opt/nodejs/utils/dateUtils';
 
 export async function handleProperties(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const method = event.requestContext.http.method;

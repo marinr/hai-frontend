@@ -7,7 +7,7 @@ const { DynamoDBDocumentClient, BatchWriteCommand } = require('@aws-sdk/lib-dyna
 
 const SAMPLE_FILE = path.resolve(__dirname, 'sample-dynamodb-items.json');
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME;
-const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1';
+const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'eu-central-1';
 
 if (!TABLE_NAME) {
   console.error('DYNAMODB_TABLE_NAME environment variable is required.');

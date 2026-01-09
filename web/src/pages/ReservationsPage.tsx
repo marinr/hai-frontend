@@ -86,8 +86,8 @@ const ReservationsPage: React.FC = () => {
           listings={listings}
           bookings={bookings}
           onBookingClick={handleBookingClick}
-          startYear={today.getFullYear()}
-          startMonth={today.getMonth()}
+          startYear={today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()}
+          startMonth={today.getMonth() === 0 ? 11 : today.getMonth() - 1}
           monthsToShow={12}
           selectedDate={selectedDate}
           onDaySelect={(day) => setSelectedDate(day.date)}

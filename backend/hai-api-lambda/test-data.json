@@ -2,8 +2,8 @@
   "description": "Test data for HAI API - Execute POST requests in this order to maintain relationships",
   "properties": [
     {
-      "room_number": "101",
-      "room_name": "Ocean View Suite",
+      "room_number": "102",
+      "room_name": "102 Apartment",
       "sea_view": true,
       "num_of_single_beds": 0,
       "num_of_double_beds": 1,

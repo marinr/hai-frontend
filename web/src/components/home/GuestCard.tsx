@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, DoorOpen, Plane, User, MapPin, BedDouble } from 'lucide-react';
+import { Clock, DoorOpen, Plane, User, MapPin, BedDouble, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import type { GuestDetail } from '@/data/homeDashboard';
@@ -60,7 +60,15 @@ const GuestCard: React.FC<GuestCardProps> = ({
                 <ChannelBadge channel={guest.channel} />
               </p>
             </div>
-            <span className="text-sm font-bold text-gray-700 whitespace-nowrap">#{guest.reservationId}</span>
+            <div className="flex flex-col items-end gap-1">
+              {selectedDateKey && guest.cleaningScheduledFor === selectedDateKey && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-pink-500 bg-pink-50 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-pink-600 shadow-sm">
+                  <Sparkles className="h-3 w-3" />
+                  Cleaning
+                </span>
+              )}
+              <span className="text-sm font-bold text-gray-700 whitespace-nowrap">#{guest.reservationId}</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">

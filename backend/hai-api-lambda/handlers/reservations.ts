@@ -6,9 +6,9 @@ import {
   updateReservation,
   deleteReservation,
   listReservations,
-} from '../repositories/reservationRepository';
-import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
-import { isValidDdmmyyyy } from '../utils/dateUtils';
+} from '/opt/nodejs/repositories/reservationRepository';
+import { jsonResponse, errorResponse, noContentResponse } from '/opt/nodejs/utils/response';
+import { isValidYyyymmdd } from '/opt/nodejs/utils/dateUtils';
 
 export async function handleReservations(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const method = event.requestContext.http.method;
@@ -28,11 +28,11 @@ export async function handleReservations(event: APIGatewayProxyEventV2): Promise
         } else if (queryParams.property_id && queryParams.check_in && queryParams.check_out) {
           const { property_id: propertyId, check_in: checkIn, check_out: checkOut } = queryParams;
 
-          if (!isValidDdmmyyyy(checkIn)) {
-            return errorResponse(400, 'Invalid check_in format. Expected DDMMYYYY');
+          if (!isValidYyyymmdd(checkIn)) {
+            return errorResponse(400, 'Invalid check_in format. Expected YYYYMMDD');
           }
-          if (!isValidDdmmyyyy(checkOut)) {
-            return errorResponse(400, 'Invalid check_out format. Expected DDMMYYYY');
+          if (!isValidYyyymmdd(checkOut)) {
+            return errorResponse(400, 'Invalid check_out format. Expected YYYYMMDD');
           }
 
           const reservation = await getReservationByPropertyAndDates(propertyId, checkIn, checkOut);
@@ -52,11 +52,11 @@ export async function handleReservations(event: APIGatewayProxyEventV2): Promise
         const createData = JSON.parse(event.body);
         
         // Validate date formats
-        if (!isValidDdmmyyyy(createData.checkin_date)) {
-          return errorResponse(400, 'Invalid checkin_date format. Expected DDMMYYYY');
+        if (!isValidYyyymmdd(createData.checkin_date)) {
+          return errorResponse(400, 'Invalid checkin_date format. Expected YYYYMMDD');
         }
-        if (!isValidDdmmyyyy(createData.checkout_date)) {
-          return errorResponse(400, 'Invalid checkout_date format. Expected DDMMYYYY');
+        if (!isValidYyyymmdd(createData.checkout_date)) {
+          return errorResponse(400, 'Invalid checkout_date format. Expected YYYYMMDD');
         }
         
         const newReservation = await createReservation(createData);
@@ -72,11 +72,11 @@ export async function handleReservations(event: APIGatewayProxyEventV2): Promise
         const updateData = JSON.parse(event.body);
         
         // Validate date formats if provided
-        if (updateData.checkin_date && !isValidDdmmyyyy(updateData.checkin_date)) {
-          return errorResponse(400, 'Invalid checkin_date format. Expected DDMMYYYY');
+        if (updateData.checkin_date && !isValidYyyymmdd(updateData.checkin_date)) {
+          return errorResponse(400, 'Invalid checkin_date format. Expected YYYYMMDD');
         }
-        if (updateData.checkout_date && !isValidDdmmyyyy(updateData.checkout_date)) {
-          return errorResponse(400, 'Invalid checkout_date format. Expected DDMMYYYY');
+        if (updateData.checkout_date && !isValidYyyymmdd(updateData.checkout_date)) {
+          return errorResponse(400, 'Invalid checkout_date format. Expected YYYYMMDD');
         }
         
         try {

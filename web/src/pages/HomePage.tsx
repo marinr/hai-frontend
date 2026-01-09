@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plane, BedDouble, DoorOpen } from 'lucide-react';
+import { Plane, BedDouble, DoorOpen, Sparkles } from 'lucide-react';
 import { useAuth } from 'react-oidc-context';
 
 import Panel from '@/components/Panel';
@@ -123,7 +123,7 @@ const HomePage: React.FC = () => {
 
   const selectedData = useMemo<DailyGuestInfo>(() => {
     if (!selectedDate) {
-      return { date: '', arrivals: [], departures: [], stays: [] };
+      return { date: '', arrivals: [], departures: [], stays: [], cleanings: [] };
     }
     const formatted = toDateKey(selectedDate);
     return (
@@ -132,6 +132,7 @@ const HomePage: React.FC = () => {
         arrivals: [],
         departures: [],
         stays: [],
+        cleanings: [],
       }
     );
   }, [dashboardData, selectedDate]);
@@ -149,6 +150,7 @@ const HomePage: React.FC = () => {
   const arrivalsCount = selectedData.arrivals.length;
   const staysCount = selectedData.stays.length;
   const departuresCount = selectedData.departures.length;
+  const cleaningsCount = selectedData.cleanings.length;
   const selectedDateKey = selectedData.date || (selectedDate ? toDateKey(selectedDate) : '');
 
   const formattedDate = selectedDate?.toLocaleDateString('en-US', {
@@ -243,6 +245,7 @@ const HomePage: React.FC = () => {
             const arrivalCount = dataForDay?.arrivals.length ?? 0;
             const stayCount = dataForDay?.stays.length ?? 0;
             const departureCount = dataForDay?.departures.length ?? 0;
+            const cleaningCount = dataForDay?.cleanings.length ?? 0;
             const isActive = selectedDate?.toDateString() === day.toDateString();
 
             return (
@@ -286,6 +289,14 @@ const HomePage: React.FC = () => {
                     >
                       {departureCount}
                     </span>
+                    <span
+                      title="Cleanings"
+                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        cleaningCount > 0 ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      {cleaningCount}
+                    </span>
                   </div>
                 </div>
               </button>
@@ -301,7 +312,7 @@ const HomePage: React.FC = () => {
               <p className="text-xs uppercase tracking-wider text-white/70 font-semibold">Daily Overview</p>
               <h1 className="mt-1.5 text-3xl font-bold">{formattedDate}</h1>
               <p className="mt-1 text-sm text-white/80">
-                {arrivalsCount} arrivals · {staysCount} in-house · {departuresCount} departures
+                {arrivalsCount} arrivals · {staysCount} in-house · {departuresCount} departures · {cleaningsCount} cleanings
               </p>
             </div>
             <div className="flex gap-3">
@@ -309,6 +320,7 @@ const HomePage: React.FC = () => {
                 { label: 'Arrivals', count: arrivalsCount, icon: <Plane className="h-5 w-5" strokeWidth={2.5} /> },
                 { label: 'In-House', count: staysCount, icon: <BedDouble className="h-5 w-5" strokeWidth={2.5} /> },
                 { label: 'Departures', count: departuresCount, icon: <DoorOpen className="h-5 w-5" strokeWidth={2.5} /> },
+                { label: 'Cleanings', count: cleaningsCount, icon: <Sparkles className="h-5 w-5" strokeWidth={2.5} /> },
               ].map(({ label, count, icon }) => (
                 <div
                   key={label}

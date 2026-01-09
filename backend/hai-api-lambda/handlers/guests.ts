@@ -5,8 +5,8 @@ import {
   updateGuest,
   deleteGuest,
   listGuests,
-} from '../repositories/guestRepository';
-import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
+} from '/opt/nodejs/repositories/guestRepository';
+import { jsonResponse, errorResponse, noContentResponse } from '/opt/nodejs/utils/response';
 
 export async function handleGuests(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const method = event.requestContext.http.method;

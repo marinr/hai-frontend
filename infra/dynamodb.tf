@@ -1,8 +1,8 @@
 resource "aws_dynamodb_table" "hai_data" {
-  name           = "${local.normalized_prefix}-hai-data"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "PK"
-  range_key      = "SK"
+  name         = "${local.normalized_prefix}-hai-data"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "PK"
+  range_key    = "SK"
 
   attribute {
     name = "PK"
@@ -66,4 +66,12 @@ resource "aws_dynamodb_table" "hai_data" {
   }
 
   tags = local.tags
+
+  lifecycle {
+    ignore_changes = [
+      attribute,
+      global_secondary_index,
+      on_demand_throughput,
+    ]
+  }
 }

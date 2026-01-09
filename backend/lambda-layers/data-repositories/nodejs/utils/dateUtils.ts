@@ -66,3 +66,38 @@ export function isValidDdmmyyyy(date: string): boolean {
 
   return true;
 }
+
+/**
+ * Validate YYYYMMDD date format
+ * @param date Date in YYYYMMDD format
+ * @returns true if valid, false otherwise
+ */
+export function isValidYyyymmdd(date: string): boolean {
+  if (!date || date.length !== 8) {
+    return false;
+  }
+
+  const year = parseInt(date.substring(0, 4), 10);
+  const month = parseInt(date.substring(4, 6), 10);
+  const day = parseInt(date.substring(6, 8), 10);
+
+  if (isNaN(year) || isNaN(month) || isNaN(day)) {
+    return false;
+  }
+
+  if (month < 1 || month > 12) {
+    return false;
+  }
+
+  if (day < 1 || day > 31) {
+    return false;
+  }
+
+  // Check for valid day in month
+  const daysInMonth = new Date(year, month, 0).getDate();
+  if (day > daysInMonth) {
+    return false;
+  }
+
+  return true;
+}

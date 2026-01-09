@@ -5,7 +5,7 @@ import { handleGuests } from './handlers/guests';
 import { handleMessages } from './handlers/messages';
 import { handleTasks } from './handlers/tasks';
 import { handleStaff } from './handlers/staff';
-import { noContentResponse, errorResponse } from './utils/response';
+import { noContentResponse, errorResponse } from '/opt/nodejs/utils/response';
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const method = event.requestContext.http.method;
@@ -18,17 +18,18 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
   try {
     // Route to appropriate handler based on path
-    if (path.startsWith('/properties')) {
+    // Support both /api/resource and /resource paths for flexibility
+    if (path.startsWith('/api/properties') || path.startsWith('/properties')) {
       return await handleProperties(event);
-    } else if (path.startsWith('/reservations')) {
+    } else if (path.startsWith('/api/reservations') || path.startsWith('/reservations')) {
       return await handleReservations(event);
-    } else if (path.startsWith('/guests')) {
+    } else if (path.startsWith('/api/guests') || path.startsWith('/guests')) {
       return await handleGuests(event);
-    } else if (path.startsWith('/messages')) {
+    } else if (path.startsWith('/api/messages') || path.startsWith('/messages')) {
       return await handleMessages(event);
-    } else if (path.startsWith('/tasks')) {
+    } else if (path.startsWith('/api/tasks') || path.startsWith('/tasks')) {
       return await handleTasks(event);
-    } else if (path.startsWith('/staff')) {
+    } else if (path.startsWith('/api/staff') || path.startsWith('/staff')) {
       return await handleStaff(event);
     }
 

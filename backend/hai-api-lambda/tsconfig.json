@@ -4,17 +4,27 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./",
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "forceConsistentCasingInFileNames": false,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true
+    "noEmit": false,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "/opt/nodejs/*": ["../lambda-layers/data-repositories/nodejs/nodejs/*"]
+    }
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "files": [
+    "layer-types.d.ts",
+    "handler.ts",
+    "handlers/guests.ts",
+    "handlers/messages.ts",
+    "handlers/properties.ts",
+    "handlers/reservations.ts",
+    "handlers/staff.ts",
+    "handlers/tasks.ts"
+  ]
 }

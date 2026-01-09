@@ -5,8 +5,8 @@ import {
   updateStaff,
   deleteStaff,
   listStaff,
-} from '../repositories/staffRepository';
-import { jsonResponse, errorResponse, noContentResponse } from '../utils/response';
+} from '/opt/nodejs/repositories/staffRepository';
+import { jsonResponse, errorResponse, noContentResponse } from '/opt/nodejs/utils/response';
 
 export async function handleStaff(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const method = event.requestContext.http.method;
